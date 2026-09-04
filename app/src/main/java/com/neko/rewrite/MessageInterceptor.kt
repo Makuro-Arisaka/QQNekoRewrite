@@ -40,6 +40,12 @@ object MessageInterceptor {
 
     private const val KELEMTYPETEXT = 1
 
+    /**
+     * 转义前缀：以它开头的消息【跳过 AI 改写】，并【去掉前缀】后原样发送。
+     * 例：输入 `//你好` → 不做猫娘改写，实际发出 `你好`。
+     */
+    private const val SKIP_PREFIX = "//"
+
     /** 等待队列上限 */
     private const val MAX_PENDING = 8
 
@@ -138,12 +144,20 @@ object MessageInterceptor {
     private fun onMessageHook(param: XC_MethodHook.MethodHookParam, hookName: String) {
         if (!ConfigManager.config.enabled) return
 
-        // API Key 为空时跳过（避免每条消息都触发 AI 调用）
-        if (!AiRewriteEngine.canRewrite()) {
-            return
-        }
-
         try {
+            // 找到第一个可改写的文本元素
+            val target = findFirstTextElement(param.args) ?: return
+
+            // 转义前缀「//」：跳过 AI 改写，去掉前缀后原样发送。
+            // 刻意放在 API Key 检查与联系人过滤【之前】：「//」是用户给模块的指令，
+            // 无论对方是否在白/黑名单、Key 是否配置，都不该泄漏到实际发出的消息里。
+            if (handleSkipPrefix(target)) return
+
+            // API Key 为空时跳过（避免每条消息都触发 AI 调用）
+            if (!AiRewriteEngine.canRewrite()) {
+                return
+            }
+
             // 提取联系人信息（用于白名单/黑名单过滤）
             val contact = ContactFilter.extractContact(param.args)
 
@@ -152,9 +166,6 @@ object MessageInterceptor {
                 XposedBridge.log("[NekoRewrite] 🚫 联系人已过滤 (${contact.typeLabel}): ${contact.peerUid}")
                 return
             }
-
-            // 找到第一个可改写的文本元素
-            val target = findFirstTextElement(param.args) ?: return
 
             // 记录联系人信息（仅记录有效联系人，供设置页参考）
             if (contact.isValid) {
@@ -315,6 +326,34 @@ object MessageInterceptor {
         original
     }
 
+    /**
+     * 处理转义前缀「//」：跳过 AI 改写，去掉前缀后原样发送。
+     *
+     * 刻意【不】做异步接管（不调 setResult），让原 sendMsg 照常执行 ——
+     * 此时 textElement.content 已被改写为去掉前缀的文本，因此实际发出的就是去前缀后的原文。
+     *
+     * 例：`//你好` → 不改写，发出 `你好`；`// 你好` 的前导空格一并去掉。
+     *
+     * @return true = 已处理（调用方应直接返回）；false = 无前缀，走正常改写流程
+     */
+    private fun handleSkipPrefix(target: TextTarget): Boolean {
+        if (!target.original.startsWith(SKIP_PREFIX)) return false
+
+        val stripped = target.original.removePrefix(SKIP_PREFIX).trimStart()
+        if (stripped.isNotBlank()) {
+            XposedHelpers.setObjectField(target.textElement, "content", stripped)
+            XposedBridge.log("[NekoRewrite] ⏭️ // 前缀：跳过改写，去掉前缀后发送: ${stripped.take(50)}")
+            LogRecorder.msg("Hook", "// 跳过改写: ${stripped.take(50)}")
+            if (ConfigManager.config.showToast) {
+                showSkipToast(stripped)
+            }
+        } else {
+            // 消息只有前缀、没有实际内容 —— 不改写，保持原文发送（避免发出空消息）
+            XposedBridge.log("[NekoRewrite] ⏭️ // 前缀但无实际内容，保持原文跳过改写")
+        }
+        return true
+    }
+
     // endregion
 
     // region 参数解析
@@ -377,6 +416,25 @@ object MessageInterceptor {
         try {
             val shortOriginal = original.take(30) + if (original.length > 30) "…" else ""
             val msg = "🐱 未改写，已发送原文: $shortOriginal"
+            Handler(context.mainLooper).post {
+                try {
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                } catch (_: Throwable) { }
+            }
+        } catch (e: Exception) {
+            XposedBridge.log("[NekoRewrite] Toast 显示失败: ${e.message}")
+        }
+    }
+
+    /**
+     * 显示「// 前缀已跳过改写」Toast（在 QQ 主线程执行）。
+     * 与其它 Toast 共用 showToast 开关。content 为已去掉前缀的文本。
+     */
+    private fun showSkipToast(content: String) {
+        val context = qqContext ?: return
+        try {
+            val short = content.take(30) + if (content.length > 30) "…" else ""
+            val msg = "🐱 // 已跳过改写: $short"
             Handler(context.mainLooper).post {
                 try {
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
