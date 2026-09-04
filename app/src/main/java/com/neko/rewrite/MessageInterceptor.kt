@@ -352,7 +352,8 @@ object MessageInterceptor {
     /**
      * 显示改写结果 Toast（在 QQ 主线程执行）
      */
-    private fun showRewriteToast(original: String, rewritten: String) {        val context = qqContext ?: return
+    private fun showRewriteToast(original: String, rewritten: String) {
+        val context = qqContext ?: return
         try {
             val shortOriginal = original.take(20) + if (original.length > 20) "…" else ""
             val shortRewritten = rewritten.take(30) + if (rewritten.length > 30) "…" else ""
