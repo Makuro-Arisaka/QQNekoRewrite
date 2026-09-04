@@ -22,6 +22,13 @@
     <color name="md_theme_surface_variant">#F5F0EB</color>
     <color name="md_theme_on_surface_variant">#4A4540</color>
 
+    <!-- MD3 容器色阶（filled 卡片 / 输入框描边用） -->
+    <color name="md_theme_surface_container_low">#F8F2EB</color>
+    <color name="md_theme_surface_container_high">#F1EBE3</color>
+    <color name="md_theme_surface_container_highest">#ECE5DD</color>
+    <color name="md_theme_outline">#7E746A</color>
+    <color name="md_theme_outline_variant">#D0C4B9</color>
+
     <color name="md_theme_background">#FFFBF5</color>
     <color name="md_theme_on_background">#1C1917</color>
 

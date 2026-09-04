@@ -10,7 +10,10 @@ import android.widget.*
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
-import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
+import com.google.android.material.textfield.TextInputLayout
 import com.neko.rewrite.ApiProbe
 import com.neko.rewrite.ConfigManager
 import com.neko.rewrite.MainHook
@@ -25,21 +28,23 @@ class SettingsFragment : Fragment() {
         const val TAG = "SettingsFragment"
     }
 
-    private lateinit var switchEnabled: SwitchMaterial
-    private lateinit var switchShowToast: SwitchMaterial
-    private lateinit var switchStartupToast: SwitchMaterial
-    private lateinit var switchQuickToggle: SwitchMaterial
-    private lateinit var switchAsyncRewrite: SwitchMaterial
+    private lateinit var switchEnabled: MaterialSwitch
+    private lateinit var switchShowToast: MaterialSwitch
+    private lateinit var switchStartupToast: MaterialSwitch
+    private lateinit var switchQuickToggle: MaterialSwitch
+    private lateinit var switchAsyncRewrite: MaterialSwitch
     private lateinit var editRewriteTimeout: EditText
     private lateinit var editApiKey: EditText
-    private lateinit var spinnerProvider: Spinner
+    private lateinit var spinnerProvider: MaterialAutoCompleteTextView
     private lateinit var editEndpoint: EditText
-    private lateinit var spinnerModel: Spinner
+    private lateinit var spinnerModel: MaterialAutoCompleteTextView
+    private lateinit var layoutModel: TextInputLayout
+    private lateinit var layoutCustomModel: TextInputLayout
     private lateinit var editCustomModel: EditText
     private lateinit var btnCheckConnection: MaterialButton
     private lateinit var btnFetchModels: MaterialButton
     private lateinit var textProbeStatus: TextView
-    private lateinit var seekbarTemperature: SeekBar
+    private lateinit var sliderTemperature: Slider
     private lateinit var textTemperature: TextView
     private lateinit var editMaxTokens: EditText
     private lateinit var editPrompt: EditText
@@ -79,11 +84,13 @@ class SettingsFragment : Fragment() {
         spinnerProvider = view.findViewById(R.id.spinner_provider)
         editEndpoint = view.findViewById(R.id.edit_endpoint)
         spinnerModel = view.findViewById(R.id.spinner_model)
+        layoutModel = view.findViewById(R.id.layout_model)
+        layoutCustomModel = view.findViewById(R.id.layout_custom_model)
         editCustomModel = view.findViewById(R.id.edit_custom_model)
         btnCheckConnection = view.findViewById(R.id.btn_check_connection)
         btnFetchModels = view.findViewById(R.id.btn_fetch_models)
         textProbeStatus = view.findViewById(R.id.text_probe_status)
-        seekbarTemperature = view.findViewById(R.id.seekbar_temperature)
+        sliderTemperature = view.findViewById(R.id.slider_temperature)
         textTemperature = view.findViewById(R.id.text_temperature)
         editMaxTokens = view.findViewById(R.id.edit_max_tokens)
         editPrompt = view.findViewById(R.id.edit_prompt)
@@ -108,30 +115,25 @@ class SettingsFragment : Fragment() {
     }
 
     private fun setupProviderSpinner() {
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, providers.map { it.name })
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerProvider.adapter = adapter
-        spinnerProvider.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                val provider = providers[position]
-                // 初次加载或重选同一项：不覆盖已保存的自定义端点 / 模型
-                if (provider.name == currentProvider.name) return
-                currentProvider = provider
-                // 用户主动切换提供方：自动填充预设端点与默认模型
-                editEndpoint.setText(provider.apiEndpoint)
-                if (provider.models.isNotEmpty()) {
-                    spinnerModel.visibility = View.VISIBLE
-                    editCustomModel.visibility = View.GONE
-                    val modelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, provider.models)
-                    modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                    spinnerModel.adapter = modelAdapter
-                    spinnerModel.setSelection(provider.models.indexOf(provider.defaultModel).coerceAtLeast(0))
-                } else {
-                    spinnerModel.visibility = View.GONE
-                    editCustomModel.visibility = View.VISIBLE
-                }
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, providers.map { it.name })
+        spinnerProvider.setAdapter(adapter)
+        spinnerProvider.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
+            val provider = providers[position]
+            // 初次加载或重选同一项：不覆盖已保存的自定义端点 / 模型
+            if (provider.name == currentProvider.name) return@OnItemClickListener
+            currentProvider = provider
+            // 用户主动切换提供方：自动填充预设端点与默认模型
+            editEndpoint.setText(provider.apiEndpoint)
+            if (provider.models.isNotEmpty()) {
+                layoutModel.visibility = View.VISIBLE
+                layoutCustomModel.visibility = View.GONE
+                val modelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, provider.models)
+                spinnerModel.setAdapter(modelAdapter)
+                spinnerModel.setText(provider.defaultModel, false)
+            } else {
+                layoutModel.visibility = View.GONE
+                layoutCustomModel.visibility = View.VISIBLE
             }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
         }
     }
 
@@ -148,7 +150,7 @@ class SettingsFragment : Fragment() {
         val providerName = prefs.getString("provider", "DeepSeek (深度求索)") ?: "DeepSeek (深度求索)"
         val provider = ProviderPresets.findByName(providerName) ?: providers[1]
         currentProvider = provider
-        spinnerProvider.setSelection(providers.indexOf(provider).coerceAtLeast(0))
+        spinnerProvider.setText(provider.name, false)
 
         // 端点
         editEndpoint.setText(prefs.getString("api_endpoint", ConfigManager.DEFAULT_ENDPOINT) ?: ConfigManager.DEFAULT_ENDPOINT)
@@ -158,7 +160,8 @@ class SettingsFragment : Fragment() {
         bindModelView(provider, model)
 
         val temp = prefs.getFloat("temperature", 0.8f)
-        seekbarTemperature.progress = (temp * 100).toInt()
+        // Slider 有 0.05 步长，需对齐后回填，否则抛 IllegalArgumentException
+        sliderTemperature.value = (Math.round(temp * 20f) / 20f).coerceIn(0f, 1f)
         textTemperature.text = String.format("%.1f", temp)
 
         editMaxTokens.setText(prefs.getInt("max_tokens", 500).toString())
@@ -179,27 +182,22 @@ class SettingsFragment : Fragment() {
     /** 根据提供方是否有预设模型列表，决定显示模型下拉或自由输入 */
     private fun bindModelView(provider: ProviderPresets.Provider, model: String) {
         if (provider.models.isNotEmpty()) {
-            spinnerModel.visibility = View.VISIBLE
-            editCustomModel.visibility = View.GONE
-            val modelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, provider.models)
-            modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerModel.adapter = modelAdapter
-            spinnerModel.setSelection(provider.models.indexOf(model).coerceAtLeast(0))
+            layoutModel.visibility = View.VISIBLE
+            layoutCustomModel.visibility = View.GONE
+            val modelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, provider.models)
+            spinnerModel.setAdapter(modelAdapter)
+            spinnerModel.setText(model, false)
         } else {
-            spinnerModel.visibility = View.GONE
-            editCustomModel.visibility = View.VISIBLE
+            layoutModel.visibility = View.GONE
+            layoutCustomModel.visibility = View.VISIBLE
             editCustomModel.setText(model)
         }
     }
 
     private fun setupListeners() {
-        seekbarTemperature.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                textTemperature.text = String.format("%.1f", progress / 100f)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        sliderTemperature.addOnChangeListener { _, value, _ ->
+            textTemperature.text = String.format("%.1f", value)
+        }
 
         btnResetPrompt.setOnClickListener {
             editPrompt.setText(PromptManager.DEFAULT_PROMPT)
@@ -251,7 +249,9 @@ class SettingsFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        val deleteBtn = com.google.android.material.button.MaterialButton(requireContext()).apply {
+        val deleteBtn = com.google.android.material.button.MaterialButton(
+            requireContext(), null, androidx.appcompat.R.attr.borderlessButtonStyle
+        ).apply {
             text = "✕"
             textSize = 12f
             insetTop = 0
@@ -292,7 +292,7 @@ class SettingsFragment : Fragment() {
 
     private fun getSelectedModel(): String {
         return if (currentProvider.models.isNotEmpty()) {
-            spinnerModel.selectedItem?.toString() ?: currentProvider.defaultModel
+            spinnerModel.text.toString().ifEmpty { currentProvider.defaultModel }
         } else {
             editCustomModel.text.toString().trim()
         }
@@ -308,7 +308,7 @@ class SettingsFragment : Fragment() {
 
     private fun saveConfig() {
         try {
-            val temperature = seekbarTemperature.progress / 100f
+            val temperature = sliderTemperature.value
             val maxTokens = editMaxTokens.text.toString().toIntOrNull() ?: 500
             val provider = currentProvider.name
             val endpoint = editEndpoint.text.toString().trim()
@@ -403,7 +403,7 @@ class SettingsFragment : Fragment() {
     private fun getModelInput(): String {
         val provider = currentProvider
         return if (provider.models.isNotEmpty()) {
-            spinnerModel.selectedItem?.toString() ?: provider.defaultModel
+            spinnerModel.text.toString().ifEmpty { provider.defaultModel }
         } else {
             editCustomModel.text.toString().trim()
         }
@@ -505,16 +505,15 @@ class SettingsFragment : Fragment() {
         val currentModel = getModelInput()
 
         // 切到下拉视图
-        spinnerModel.visibility = View.VISIBLE
-        editCustomModel.visibility = View.GONE
+        layoutModel.visibility = View.VISIBLE
+        layoutCustomModel.visibility = View.GONE
 
-        val modelAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, models)
-        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerModel.adapter = modelAdapter
+        val modelAdapter = ArrayAdapter(activity, android.R.layout.simple_list_item_1, models)
+        spinnerModel.setAdapter(modelAdapter)
 
         // 若当前输入正好在列表里，选中它；否则默认选第一个
         val idx = if (currentModel.isNotEmpty()) models.indexOf(currentModel) else -1
-        spinnerModel.setSelection(if (idx >= 0) idx else 0)
+        spinnerModel.setText(models[if (idx >= 0) idx else 0], false)
     }
 
     /** 解析当前主题（含 Android 12+ Material You 动态取色）下的一个颜色属性 */

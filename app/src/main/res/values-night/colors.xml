@@ -21,6 +21,13 @@
     <color name="md_theme_surface_variant">#4E453C</color>
     <color name="md_theme_on_surface_variant">#D0C4B6</color>
 
+    <!-- MD3 容器色阶 -->
+    <color name="md_theme_surface_container_low">#221C17</color>
+    <color name="md_theme_surface_container_high">#2D2620</color>
+    <color name="md_theme_surface_container_highest">#38312A</color>
+    <color name="md_theme_outline">#998F84</color>
+    <color name="md_theme_outline_variant">#4E453C</color>
+
     <color name="md_theme_background">#171310</color>
     <color name="md_theme_on_background">#ECE1D7</color>
 
