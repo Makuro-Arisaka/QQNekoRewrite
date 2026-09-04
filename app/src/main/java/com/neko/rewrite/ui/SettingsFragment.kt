@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.neko.rewrite.ApiProbe
 import com.neko.rewrite.ConfigManager
 import com.neko.rewrite.MainHook
 import com.neko.rewrite.PromptManager
@@ -35,6 +36,9 @@ class SettingsFragment : Fragment() {
     private lateinit var editEndpoint: EditText
     private lateinit var spinnerModel: Spinner
     private lateinit var editCustomModel: EditText
+    private lateinit var btnCheckConnection: MaterialButton
+    private lateinit var btnFetchModels: MaterialButton
+    private lateinit var textProbeStatus: TextView
     private lateinit var seekbarTemperature: SeekBar
     private lateinit var textTemperature: TextView
     private lateinit var editMaxTokens: EditText
@@ -76,6 +80,9 @@ class SettingsFragment : Fragment() {
         editEndpoint = view.findViewById(R.id.edit_endpoint)
         spinnerModel = view.findViewById(R.id.spinner_model)
         editCustomModel = view.findViewById(R.id.edit_custom_model)
+        btnCheckConnection = view.findViewById(R.id.btn_check_connection)
+        btnFetchModels = view.findViewById(R.id.btn_fetch_models)
+        textProbeStatus = view.findViewById(R.id.text_probe_status)
         seekbarTemperature = view.findViewById(R.id.seekbar_temperature)
         textTemperature = view.findViewById(R.id.text_temperature)
         editMaxTokens = view.findViewById(R.id.edit_max_tokens)
@@ -202,6 +209,8 @@ class SettingsFragment : Fragment() {
         btnSave.setOnClickListener { saveConfig() }
         btnAddWhitelist.setOnClickListener { showAddUidDialog(true) }
         btnAddBlacklist.setOnClickListener { showAddUidDialog(false) }
+        btnCheckConnection.setOnClickListener { checkConnection() }
+        btnFetchModels.setOnClickListener { fetchModels() }
     }
 
     // ===== 名单管理 =====
@@ -378,5 +387,133 @@ class SettingsFragment : Fragment() {
             if (isError) resources.getColor(R.color.status_error, null)
             else resources.getColor(R.color.status_ok, null)
         )
+    }
+
+    // ===== 检查连接 / 获取可用模型 =====
+
+    private var probing = false
+
+    /** 当前输入的 API 端点 */
+    private fun getEndpointInput(): String = editEndpoint.text.toString().trim()
+
+    /** 当前输入的 API Key */
+    private fun getApiKeyInput(): String = editApiKey.text.toString().trim()
+
+    /** 当前选择的模型（预设下拉或自定义输入） */
+    private fun getModelInput(): String {
+        val provider = currentProvider
+        return if (provider.models.isNotEmpty()) {
+            spinnerModel.selectedItem?.toString() ?: provider.defaultModel
+        } else {
+            editCustomModel.text.toString().trim()
+        }
+    }
+
+    /** 设置探测状态文本（带颜色：成功绿 / 失败红） */
+    private fun setProbeStatus(message: String, isError: Boolean) {
+        textProbeStatus.text = message
+        textProbeStatus.setTextColor(
+            if (isError) resources.getColor(R.color.status_error, null)
+            else resources.getColor(R.color.status_ok, null)
+        )
+    }
+
+    /** 后台执行探测，期间禁用按钮防重入 */
+    private fun runProbeAsync(block: () -> String, onUi: (String) -> Unit) {
+        if (probing) return
+        probing = true
+        btnCheckConnection.isEnabled = false
+        btnFetchModels.isEnabled = false
+        textProbeStatus.text = "⏳ 请求中…"
+
+        Thread {
+            val result = try {
+                block()
+            } catch (e: Throwable) {
+                "❌ ${e.javaClass.simpleName}: ${e.message ?: "未知错误"}"
+            }
+            val activity = activity ?: return@Thread
+            activity.runOnUiThread {
+                probing = false
+                btnCheckConnection.isEnabled = true
+                btnFetchModels.isEnabled = true
+                onUi(result)
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    /** 检查连接：发一个最小 chat 请求验证端点 + API Key */
+    private fun checkConnection() {
+        val endpoint = getEndpointInput()
+        val apiKey = getApiKeyInput()
+        val model = getModelInput()
+        if (endpoint.isEmpty() || apiKey.isEmpty()) {
+            setProbeStatus("请先填写 API 端点与 API Key", true)
+            return
+        }
+        runProbeAsync(
+            block = { ApiProbe.probe(endpoint, apiKey, model) },
+            onUi = { msg -> setProbeStatus(msg, msg.contains("❌") || msg.contains("⏱️") || msg.contains("🌐") || msg.contains("🔒") || msg.contains("⚠️")) }
+        )
+    }
+
+    /** 获取可用模型：从端点推导 /models 拉取真实列表，成功则填充模型下拉 */
+    private fun fetchModels() {
+        val endpoint = getEndpointInput()
+        val apiKey = getApiKeyInput()
+        if (endpoint.isEmpty() || apiKey.isEmpty()) {
+            setProbeStatus("请先填写 API 端点与 API Key", true)
+            return
+        }
+        runProbeAsync(
+            block = {
+                val result = ApiProbe.ModelsResult()
+                val ok = ApiProbe.fetchModels(endpoint, apiKey, result)
+                if (ok) {
+                    // 收集到模型 → 交给 UI 线程填充
+                    modelFetchQueue = result.models
+                    "✅ 获取到 ${result.models.size} 个可用模型"
+                } else {
+                    "❌ ${result.error}"
+                }
+            },
+            onUi = { msg ->
+                if (msg.startsWith("✅")) {
+                    fillModelsIntoSpinner(modelFetchQueue)
+                    setProbeStatus(msg, false)
+                } else {
+                    setProbeStatus(msg, true)
+                }
+            }
+        )
+    }
+
+    /** 线程间传递抓取到的模型列表 */
+    @Volatile
+    private var modelFetchQueue: List<String> = emptyList()
+
+    /**
+     * 把抓取到的模型填充进模型控件：
+     * 有预设模型下拉则刷新其数据；自定义提供方则切到下拉展示。
+     * 尽量保留当前已输入的模型（若在列表中）。
+     */
+    private fun fillModelsIntoSpinner(models: List<String>) {
+        if (models.isEmpty()) return
+        val activity = activity ?: return
+
+        // 当前模型输入（用于回填高亮）
+        val currentModel = getModelInput()
+
+        // 切到下拉视图
+        spinnerModel.visibility = View.VISIBLE
+        editCustomModel.visibility = View.GONE
+
+        val modelAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, models)
+        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerModel.adapter = modelAdapter
+
+        // 若当前输入正好在列表里，选中它；否则默认选第一个
+        val idx = if (currentModel.isNotEmpty()) models.indexOf(currentModel) else -1
+        spinnerModel.setSelection(if (idx >= 0) idx else 0)
     }
 }

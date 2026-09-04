@@ -381,6 +381,40 @@
             android:singleLine="true"
             android:background="@android:drawable/edit_text" />
 
+        <!-- 检查连接 / 获取模型 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="12dp">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_check_connection"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="检查连接"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.TonalButton" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_fetch_models"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="获取可用模型"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.TonalButton" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/text_probe_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:paddingTop="6dp"
+            android:paddingBottom="4dp"
+            android:textColor="@color/md_theme_on_surface_variant" />
+
         <!-- Temperature -->
         <TextView
             android:layout_width="match_parent"
