@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher background -->
+    <color name="ic_launcher_background">#FFF5E6</color>
+
+    <!-- Material You 猫娘主题色板 — 暖橙/棕色系 -->
+    <color name="md_theme_primary">#D97706</color>
+    <color name="md_theme_on_primary">#FFFFFF</color>
+    <color name="md_theme_primary_container">#FFEDD5</color>
+    <color name="md_theme_on_primary_container">#431407</color>
+
+    <color name="md_theme_secondary">#92400E</color>
+    <color name="md_theme_on_secondary">#FFFFFF</color>
+    <color name="md_theme_secondary_container">#FDE68A</color>
+    <color name="md_theme_on_secondary_container">#451A03</color>
+
+    <color name="md_theme_tertiary">#B45309</color>
+    <color name="md_theme_on_tertiary">#FFFFFF</color>
+
+    <color name="md_theme_surface">#FFFBF5</color>
+    <color name="md_theme_on_surface">#1C1917</color>
+    <color name="md_theme_surface_variant">#F5F0EB</color>
+    <color name="md_theme_on_surface_variant">#4A4540</color>
+
+    <color name="md_theme_background">#FFFBF5</color>
+    <color name="md_theme_on_background">#1C1917</color>
+
+    <color name="md_theme_error">#B00020</color>
+    <color name="md_theme_on_error">#FFFFFF</color>
+
+    <!-- 状态卡片用色 -->
+    <color name="status_ok">#2E7D32</color>
+    <color name="status_warn">#E65100</color>
+    <color name="status_error">#B00020</color>
+    <color name="card_background">#FFFFFF</color>
+</resources>

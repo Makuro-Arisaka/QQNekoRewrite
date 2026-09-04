@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 外部存储读写权限（配置共享 + 日志导出） -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- 网络权限（API 连通性测试） -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Xposed 模块声明 -->
+    <application
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:label="QQ NekoRewrite"
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true"
+        android:theme="@style/Theme.NekoRewrite">
+
+        <!-- Xposed/LSPosed 模块元数据 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+
+        <meta-data
+            android:name="xposeddescription"
+            android:value="QQ 猫娘 AI 改写模块 — 将发送的消息自动改写为猫娘口吻" />
+
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
+
+        <!-- 可选：模块设置界面 -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+
+        <!-- 设置界面 — 可从桌面启动 -->
+        <activity
+            android:name="com.neko.rewrite.MainActivity"
+            android:exported="true"
+            android:label="QQ NekoRewrite"
+            android:theme="@style/Theme.NekoRewrite">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

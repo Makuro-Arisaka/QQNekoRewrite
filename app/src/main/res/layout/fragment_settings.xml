@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/md_theme_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AI 提供方设置"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/md_theme_primary"
+            android:paddingBottom="16dp" />
+
+        <!-- 启用开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="启用模块"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_enabled"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+
+        <!-- Toast 开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="改写 Toast 提示"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="发送时显示改写结果"
+                android:textSize="12sp"
+                android:textColor="@color/md_theme_on_surface_variant"
+                android:layout_marginEnd="8dp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_show_toast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- 启动 Toast 开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="启动提示 Toast"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="QQ 启动时提示已加载（默认关）"
+                android:textSize="12sp"
+                android:textColor="@color/md_theme_on_surface_variant"
+                android:layout_marginEnd="8dp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_startup_toast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+
+        <!-- 异步改写开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="异步改写"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="不阻塞输入"
+                android:textSize="12sp"
+                android:textColor="@color/md_theme_on_surface_variant"
+                android:layout_marginEnd="8dp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_async_rewrite"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="开启后先放行发送线程，AI 改写完成再自动发出；关闭则等改写完成才发送。"
+            android:textSize="12sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingBottom="8dp" />
+
+        <!-- 改写超时 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="8dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="改写超时（毫秒）"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <EditText
+                android:id="@+id/edit_rewrite_timeout"
+                android:layout_width="120dp"
+                android:layout_height="48dp"
+                android:inputType="number"
+                android:hint="8000"
+                android:textSize="14sp"
+                android:singleLine="true"
+                android:gravity="end"
+                android:background="@android:drawable/edit_text" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+
+        <!-- ===== 联系人过滤 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="联系人过滤"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/md_theme_primary"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="模式"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingBottom="4dp" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_filter_mode"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            app:singleSelection="true"
+            app:checkedButton="@+id/btn_filter_off">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_filter_off"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="不限制"
+                android:textSize="12sp"
+                style="?attr/materialButtonOutlinedStyle" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_filter_white"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="仅白名单"
+                android:textSize="12sp"
+                style="?attr/materialButtonOutlinedStyle" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_filter_black"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="排除黑名单"
+                android:textSize="12sp"
+                style="?attr/materialButtonOutlinedStyle" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- 白名单 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="白名单（仅这些联系人被改写）"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+
+        <LinearLayout
+            android:id="@+id/container_whitelist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_whitelist"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="+ 添加白名单"
+            android:textSize="12sp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            style="@style/Widget.Material3.Button.TextButton" />
+
+        <!-- 黑名单 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="黑名单（这些联系人跳过改写）"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+
+        <LinearLayout
+            android:id="@+id/container_blacklist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_blacklist"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="+ 添加黑名单"
+            android:textSize="12sp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            style="@style/Widget.Material3.Button.TextButton" />
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+
+        <!-- 提供方 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="提供方"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp" />
+        <Spinner
+            android:id="@+id/spinner_provider"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@android:drawable/edit_text"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+
+        <!-- API 端点 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API 端点"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <EditText
+            android:id="@+id/edit_endpoint"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:inputType="textUri"
+            android:hint="https://..."
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:background="@android:drawable/edit_text" />
+
+        <!-- 模型 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="模型"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <Spinner
+            android:id="@+id/spinner_model"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@android:drawable/edit_text"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+        <EditText
+            android:id="@+id/edit_custom_model"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:inputType="text"
+            android:hint="自定义模型名称"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:background="@android:drawable/edit_text" />
+
+        <!-- API Key -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API Key"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <EditText
+            android:id="@+id/edit_api_key"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:inputType="textPassword"
+            android:hint="sk-..."
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:background="@android:drawable/edit_text" />
+
+        <!-- Temperature -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="创造性"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <SeekBar
+                android:id="@+id/seekbar_temperature"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="80" />
+            <TextView
+                android:id="@+id/text_temperature"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:text="0.8"
+                android:textSize="14sp"
+                android:gravity="end" />
+        </LinearLayout>
+
+        <!-- Max Tokens -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="最大 Token 数"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <EditText
+            android:id="@+id/edit_max_tokens"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:inputType="number"
+            android:hint="500"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:background="@android:drawable/edit_text" />
+
+        <!-- 提示词 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="猫娘人设提示词"
+            android:textSize="14sp"
+            android:textColor="@color/md_theme_on_surface_variant"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp" />
+        <EditText
+            android:id="@+id/edit_prompt"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:inputType="textMultiLine"
+            android:textSize="12sp"
+            android:gravity="top|start"
+            android:scrollbars="vertical"
+            android:background="@android:drawable/edit_text" />
+
+        <!-- 按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="16dp">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reset_prompt"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="重置提示词"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.Material3.Button.TonalButton" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="保存配置"
+                app:cornerRadius="12dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/text_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:gravity="center"
+            android:paddingTop="12dp" />
+
+    </LinearLayout>
+</ScrollView>
