@@ -27,6 +27,7 @@ class SettingsFragment : Fragment() {
     private lateinit var switchEnabled: SwitchMaterial
     private lateinit var switchShowToast: SwitchMaterial
     private lateinit var switchStartupToast: SwitchMaterial
+    private lateinit var switchQuickToggle: SwitchMaterial
     private lateinit var switchAsyncRewrite: SwitchMaterial
     private lateinit var editRewriteTimeout: EditText
     private lateinit var editApiKey: EditText
@@ -67,6 +68,7 @@ class SettingsFragment : Fragment() {
         switchEnabled = view.findViewById(R.id.switch_enabled)
         switchShowToast = view.findViewById(R.id.switch_show_toast)
         switchStartupToast = view.findViewById(R.id.switch_startup_toast)
+        switchQuickToggle = view.findViewById(R.id.switch_quick_toggle)
         switchAsyncRewrite = view.findViewById(R.id.switch_async_rewrite)
         editRewriteTimeout = view.findViewById(R.id.edit_rewrite_timeout)
         editApiKey = view.findViewById(R.id.edit_api_key)
@@ -130,6 +132,7 @@ class SettingsFragment : Fragment() {
         switchEnabled.isChecked = prefs.getBoolean("enabled", true)
         switchShowToast.isChecked = prefs.getBoolean("show_toast", true)
         switchStartupToast.isChecked = prefs.getBoolean("show_startup_toast", false)
+        switchQuickToggle.isChecked = prefs.getBoolean("quick_toggle", false)
         switchAsyncRewrite.isChecked = prefs.getBoolean("async_rewrite", true)
         editRewriteTimeout.setText(prefs.getInt("rewrite_timeout_ms", 8000).toString())
         editApiKey.setText(prefs.getString("api_key", "") ?: "")
@@ -328,6 +331,7 @@ class SettingsFragment : Fragment() {
                 temperature = temperature,
                 showToast = switchShowToast.isChecked,
                 showStartupToast = switchStartupToast.isChecked,
+                quickToggle = switchQuickToggle.isChecked,
                 asyncRewrite = switchAsyncRewrite.isChecked,
                 rewriteTimeoutMs = rewriteTimeout,
                 filterMode = filterMode,
@@ -352,6 +356,7 @@ class SettingsFragment : Fragment() {
                 putExtra(MainHook.EXTRA_ENABLED, switchEnabled.isChecked)
                 putExtra(MainHook.EXTRA_SHOW_TOAST, switchShowToast.isChecked)
                 putExtra(MainHook.EXTRA_SHOW_STARTUP_TOAST, switchStartupToast.isChecked)
+                putExtra(MainHook.EXTRA_QUICK_TOGGLE, switchQuickToggle.isChecked)
                 putExtra(MainHook.EXTRA_ASYNC_REWRITE, switchAsyncRewrite.isChecked)
                 putExtra(MainHook.EXTRA_REWRITE_TIMEOUT, rewriteTimeout)
                 putExtra(MainHook.EXTRA_FILTER_MODE, filterMode)

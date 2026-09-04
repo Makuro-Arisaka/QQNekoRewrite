@@ -2,6 +2,7 @@ package com.neko.rewrite
 
 import com.neko.rewrite.model.ChatRequest
 import com.neko.rewrite.model.ChatResponse
+import com.neko.rewrite.model.ModuleConfig
 import de.robv.android.xposed.XposedBridge
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
@@ -12,6 +13,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
@@ -34,6 +37,46 @@ object AiRewriteEngine {
         .build()
 
     private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
+
+    /** 未配置超时（timeoutMs <= 0）时，等待在途请求的上限，避免无限期挂起 */
+    private const val DEFAULT_WAIT_MS = 20_000L
+
+    /** 在途改写请求表：key（模型+提示词+原文）→ 正在执行的请求 */
+    private val inFlight = ConcurrentHashMap<String, InFlightCall>()
+
+    /**
+     * 一个正在执行中的改写请求。
+     *
+     * 相同 key 的后到请求会等待其结果，而【不会】再发一次 AI 调用 ——
+     * 用户在队列降级为同步路径、或快速连发相同内容时，避免重复消耗 token。
+     */
+    private class InFlightCall {
+        val latch = CountDownLatch(1)
+
+        @Volatile
+        var result: String? = null
+
+        fun complete(value: String) {
+            result = value
+            latch.countDown()
+        }
+
+        /** 等待在途请求完成；超时、被中断或结果为空时一律回退原文 */
+        fun await(fallback: String, timeoutMs: Int): String {
+            return try {
+                val waitMs = if (timeoutMs > 0) timeoutMs.toLong() else DEFAULT_WAIT_MS
+                if (latch.await(waitMs, TimeUnit.MILLISECONDS)) {
+                    result ?: fallback
+                } else {
+                    XposedBridge.log("[NekoRewrite] ⏱️ 等待在途改写超时，使用原文")
+                    fallback
+                }
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                fallback
+            }
+        }
+    }
 
     /**
      * 预检：当前配置是否允许发起 AI 调用
@@ -63,13 +106,40 @@ object AiRewriteEngine {
             return originalText
         }
 
-        // 改写缓存命中：直接返回上次结果，跳过网络调用（省 token / 降延迟）
-        RewriteCache.get(originalText, config.systemPrompt, config.model)?.let { cached ->
+        val key = RewriteCache.buildKey(originalText, config.systemPrompt, config.model)
+
+        // 1) 缓存命中：直接复用上次结果，跳过网络调用（省 token / 降延迟）
+        RewriteCache.getByKey(key)?.let { cached ->
             XposedBridge.log("[NekoRewrite] 💾 改写缓存命中，跳过 AI 调用")
             LogRecorder.debug(TAG, "改写缓存命中")
             return cached
         }
 
+        // 2) 并发合并：同一 key 的请求已在执行中，等待其结果而非重复调用 AI
+        val pending = inFlight[key]
+        if (pending != null) {
+            XposedBridge.log("[NekoRewrite] 🔗 相同改写正在执行，复用其结果（避免重复消耗 token）")
+            LogRecorder.debug(TAG, "并发请求合并")
+            return pending.await(originalText, timeoutMs)
+        }
+
+        // 3) 正常执行，并把结果共享给期间到达的相同请求
+        val call = InFlightCall()
+        inFlight[key] = call
+        return try {
+            performRewrite(originalText, timeoutMs, config).also { call.complete(it) }
+        } finally {
+            inFlight.remove(key)
+            call.latch.countDown() // 异常时兜底放行等待者，避免永久挂起
+        }
+    }
+
+    /** 真正发起一次 AI 请求（调用方已做过缓存与并发合并判断） */
+    private fun performRewrite(
+        originalText: String,
+        timeoutMs: Int,
+        config: ModuleConfig
+    ): String {
         val requestBody = ChatRequest(
             model = config.model,
             messages = PromptManager.buildMessages(config.systemPrompt, originalText),

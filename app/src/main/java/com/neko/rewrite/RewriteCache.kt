@@ -25,12 +25,20 @@ object RewriteCache {
         }
     }
 
-    private fun buildKey(original: String, systemPrompt: String, model: String): String {
+    /**
+     * 组装缓存 key。设为 public 以便 [AiRewriteEngine] 用同一 key 做并发请求合并
+     * （缓存与在途请求表必须口径一致，否则合并会张冠李戴）。
+     */
+    fun buildKey(original: String, systemPrompt: String, model: String): String {
         return "$model$SEP$systemPrompt$SEP$original"
     }
 
     fun get(original: String, systemPrompt: String, model: String): String? {
-        val key = buildKey(original, systemPrompt, model)
+        return getByKey(buildKey(original, systemPrompt, model))
+    }
+
+    /** 按已组装好的 key 查询缓存 */
+    fun getByKey(key: String): String? {
         synchronized(lock) { return store[key] }
     }
 

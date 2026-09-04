@@ -99,6 +99,35 @@
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
 
+        <!-- 通知栏快速开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="通知栏快速开关"
+                android:textSize="16sp"
+                android:textColor="@color/md_theme_on_surface" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="常驻通知一键启停（默认关）"
+                android:textSize="12sp"
+                android:textColor="@color/md_theme_on_surface_variant"
+                android:layout_marginEnd="8dp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_quick_toggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+
         <!-- 异步改写开关 -->
         <LinearLayout
             android:layout_width="match_parent"

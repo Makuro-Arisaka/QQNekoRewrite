@@ -148,6 +148,7 @@ object ConfigManager {
                     temperature = prefs.getFloat("temperature", 0.8f),
                     showToast = prefs.getBoolean("show_toast", true),
                     showStartupToast = prefs.getBoolean("show_startup_toast", false),
+                    quickToggle = prefs.getBoolean("quick_toggle", false),
                     asyncRewrite = prefs.getBoolean("async_rewrite", true),
                     rewriteTimeoutMs = prefs.getInt("rewrite_timeout_ms", 8000),
                     filterMode = prefs.getInt("filter_mode", 0),
@@ -254,6 +255,7 @@ object ConfigManager {
             .putInt("max_tokens", newConfig.maxTokens)
             .putBoolean("show_toast", newConfig.showToast)
             .putBoolean("show_startup_toast", newConfig.showStartupToast)
+            .putBoolean("quick_toggle", newConfig.quickToggle)
             .putBoolean("async_rewrite", newConfig.asyncRewrite)
             .putInt("rewrite_timeout_ms", newConfig.rewriteTimeoutMs)
             .putInt("filter_mode", newConfig.filterMode)
