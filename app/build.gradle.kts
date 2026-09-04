@@ -16,6 +16,19 @@ android {
         versionName = "1.0.0"
     }
 
+    // 仅当环境变量 KEYSTORE_PASS 存在时才启用签名；否则 release 仍产出 unsigned。
+    // 密码绝不写入本文件或仓库（.gitignore 已排除 *.keystore）。
+    signingConfigs {
+        create("release") {
+            System.getenv("KEYSTORE_PASS")?.let { pass ->
+                storeFile = File(rootDir, "neko-rewrite.keystore")
+                storePassword = pass
+                keyAlias = "nekorewrite"
+                keyPassword = pass
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -23,6 +36,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            System.getenv("KEYSTORE_PASS")?.let {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
