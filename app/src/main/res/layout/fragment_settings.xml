@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@color/md_theme_background">
+    android:background="?attr/colorSurface">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,7 +18,7 @@
             android:text="AI 提供方设置"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="@color/md_theme_primary"
+            android:textColor="?attr/colorPrimary"
             android:paddingBottom="16dp" />
 
         <!-- 启用开关 -->
@@ -34,14 +34,14 @@
                 android:layout_weight="1"
                 android:text="启用模块"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switch_enabled"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
         <!-- Toast 开关 -->
         <LinearLayout
@@ -56,13 +56,13 @@
                 android:layout_weight="1"
                 android:text="改写 Toast 提示"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="发送时显示改写结果"
                 android:textSize="12sp"
-                android:textColor="@color/md_theme_on_surface_variant"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginEnd="8dp" />
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switch_show_toast"
@@ -83,13 +83,13 @@
                 android:layout_weight="1"
                 android:text="启动提示 Toast"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="QQ 启动时提示已加载（默认关）"
                 android:textSize="12sp"
-                android:textColor="@color/md_theme_on_surface_variant"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginEnd="8dp" />
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switch_startup_toast"
@@ -97,7 +97,7 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
         <!-- 通知栏快速开关 -->
         <LinearLayout
@@ -112,13 +112,13 @@
                 android:layout_weight="1"
                 android:text="通知栏快速开关"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="常驻通知一键启停（默认关）"
                 android:textSize="12sp"
-                android:textColor="@color/md_theme_on_surface_variant"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginEnd="8dp" />
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switch_quick_toggle"
@@ -126,7 +126,7 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
         <!-- 异步改写开关 -->
         <LinearLayout
@@ -141,13 +141,13 @@
                 android:layout_weight="1"
                 android:text="异步改写"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="不阻塞输入"
                 android:textSize="12sp"
-                android:textColor="@color/md_theme_on_surface_variant"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:layout_marginEnd="8dp" />
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switch_async_rewrite"
@@ -160,7 +160,7 @@
             android:layout_height="wrap_content"
             android:text="开启后先放行发送线程，AI 改写完成再自动发出；关闭则等改写完成才发送。"
             android:textSize="12sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingBottom="8dp" />
 
         <!-- 改写超时 -->
@@ -176,7 +176,7 @@
                 android:layout_weight="1"
                 android:text="改写超时（毫秒）"
                 android:textSize="16sp"
-                android:textColor="@color/md_theme_on_surface" />
+                android:textColor="?attr/colorOnSurface" />
             <EditText
                 android:id="@+id/edit_rewrite_timeout"
                 android:layout_width="120dp"
@@ -189,7 +189,7 @@
                 android:background="@android:drawable/edit_text" />
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
         <!-- ===== 联系人过滤 ===== -->
         <TextView
@@ -198,7 +198,7 @@
             android:text="联系人过滤"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="@color/md_theme_primary"
+            android:textColor="?attr/colorPrimary"
             android:paddingTop="16dp"
             android:paddingBottom="8dp" />
 
@@ -207,7 +207,7 @@
             android:layout_height="wrap_content"
             android:text="模式"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingBottom="4dp" />
 
         <com.google.android.material.button.MaterialButtonToggleGroup
@@ -251,7 +251,7 @@
             android:layout_height="wrap_content"
             android:text="白名单（仅这些联系人被改写）"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
 
@@ -277,7 +277,7 @@
             android:layout_height="wrap_content"
             android:text="黑名单（这些联系人跳过改写）"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
 
@@ -297,7 +297,7 @@
             android:insetBottom="0dp"
             style="@style/Widget.Material3.Button.TextButton" />
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
         <!-- 提供方 -->
         <TextView
@@ -305,7 +305,7 @@
             android:layout_height="wrap_content"
             android:text="提供方"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="16dp"
             android:paddingBottom="4dp" />
         <Spinner
@@ -322,7 +322,7 @@
             android:layout_height="wrap_content"
             android:text="API 端点"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <EditText
@@ -341,7 +341,7 @@
             android:layout_height="wrap_content"
             android:text="模型"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <Spinner
@@ -368,7 +368,7 @@
             android:layout_height="wrap_content"
             android:text="API Key"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <EditText
@@ -413,7 +413,7 @@
             android:textSize="12sp"
             android:paddingTop="6dp"
             android:paddingBottom="4dp"
-            android:textColor="@color/md_theme_on_surface_variant" />
+            android:textColor="?attr/colorOnSurfaceVariant" />
 
         <!-- Temperature -->
         <TextView
@@ -421,7 +421,7 @@
             android:layout_height="wrap_content"
             android:text="创造性"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <LinearLayout
@@ -451,7 +451,7 @@
             android:layout_height="wrap_content"
             android:text="最大 Token 数"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <EditText
@@ -470,7 +470,7 @@
             android:layout_height="wrap_content"
             android:text="猫娘人设提示词"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:paddingTop="12dp"
             android:paddingBottom="4dp" />
         <EditText

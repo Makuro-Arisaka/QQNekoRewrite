@@ -226,7 +226,7 @@ class SettingsFragment : Fragment() {
             val emptyText = TextView(requireContext()).apply {
                 text = "（空）"
                 textSize = 13f
-                setTextColor(resources.getColor(R.color.md_theme_on_surface_variant, null))
+                setTextColor(themeAttrColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
                 setPadding(8, 4, 8, 4)
             }
             container.addView(emptyText)
@@ -247,7 +247,7 @@ class SettingsFragment : Fragment() {
         val label = TextView(requireContext()).apply {
             text = uid
             textSize = 14f
-            setTextColor(resources.getColor(R.color.md_theme_on_surface, null))
+            setTextColor(themeAttrColor(com.google.android.material.R.attr.colorOnSurface))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
@@ -515,5 +515,21 @@ class SettingsFragment : Fragment() {
         // 若当前输入正好在列表里，选中它；否则默认选第一个
         val idx = if (currentModel.isNotEmpty()) models.indexOf(currentModel) else -1
         spinnerModel.setSelection(if (idx >= 0) idx else 0)
+    }
+
+    /** 解析当前主题（含 Android 12+ Material You 动态取色）下的一个颜色属性 */
+    private fun themeAttrColor(attrRes: Int): Int {
+        val tv = android.util.TypedValue()
+        val ctx = requireContext()
+        if (ctx.theme.resolveAttribute(attrRes, tv, true)) {
+            if (tv.type in android.util.TypedValue.TYPE_FIRST_COLOR_INT..
+                android.util.TypedValue.TYPE_LAST_COLOR_INT) {
+                return tv.data
+            }
+            if (tv.resourceId != 0) {
+                return resources.getColor(tv.resourceId, null)
+            }
+        }
+        return resources.getColor(R.color.md_theme_on_surface_variant, null)
     }
 }

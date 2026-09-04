@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 夜间（深色）Material You 猫娘色板 — 暖橙/棕
+     仅作用于 Android 12 之前（无 Monet 动态取色的旧系统）的 DayNight 深色模式；
+     Android 12+ 由 DynamicColors overlay 覆盖，不读这里。 -->
+<resources>
+    <color name="md_theme_primary">#FFB74D</color>
+    <color name="md_theme_on_primary">#402A00</color>
+    <color name="md_theme_primary_container">#5C3F00</color>
+    <color name="md_theme_on_primary_container">#FFDEA8</color>
+
+    <color name="md_theme_secondary">#F4BE69</color>
+    <color name="md_theme_on_secondary">#3E2C05</color>
+    <color name="md_theme_secondary_container">#5A4211</color>
+    <color name="md_theme_on_secondary_container">#FFDEA8</color>
+
+    <color name="md_theme_tertiary">#E0B75E</color>
+    <color name="md_theme_on_tertiary">#3B2E00</color>
+
+    <color name="md_theme_surface">#171310</color>
+    <color name="md_theme_on_surface">#ECE1D7</color>
+    <color name="md_theme_surface_variant">#4E453C</color>
+    <color name="md_theme_on_surface_variant">#D0C4B6</color>
+
+    <color name="md_theme_background">#171310</color>
+    <color name="md_theme_on_background">#ECE1D7</color>
+
+    <color name="md_theme_error">#FFB4AB</color>
+    <color name="md_theme_on_error">#690005</color>
+</resources>

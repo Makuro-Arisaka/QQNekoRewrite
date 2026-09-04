@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@color/md_theme_background">
+    android:background="?attr/colorSurface">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,7 +18,7 @@
             android:text="QQ NekoRewrite"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:textColor="@color/md_theme_primary"
+            android:textColor="?attr/colorPrimary"
             android:gravity="center"
             android:paddingBottom="4dp" />
 
@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:text="猫娘 AI 改写模块 · 状态概览"
             android:textSize="14sp"
-            android:textColor="@color/md_theme_on_surface_variant"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:gravity="center"
             android:paddingBottom="24dp" />
 
@@ -51,7 +51,7 @@
                     android:text="模块状态"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/md_theme_on_surface"
+                    android:textColor="?attr/colorOnSurface"
                     android:paddingBottom="12dp" />
 
                 <LinearLayout
@@ -66,7 +66,7 @@
                         android:layout_weight="1"
                         android:text="LSPosed 状态"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_lsposed_status"
                         android:layout_width="wrap_content"
@@ -76,7 +76,7 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -90,7 +90,7 @@
                         android:layout_weight="1"
                         android:text="模块功能"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_module_enabled"
                         android:layout_width="wrap_content"
@@ -100,7 +100,7 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -114,7 +114,7 @@
                         android:layout_weight="1"
                         android:text="配置持久化"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_config_store"
                         android:layout_width="wrap_content"
@@ -146,7 +146,7 @@
                     android:text="API 连接"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/md_theme_on_surface"
+                    android:textColor="?attr/colorOnSurface"
                     android:paddingBottom="12dp" />
 
                 <LinearLayout
@@ -161,20 +161,20 @@
                         android:layout_weight="1"
                         android:text="端点"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_api_endpoint"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="—"
                         android:textSize="13sp"
-                        android:textColor="@color/md_theme_on_surface"
+                        android:textColor="?attr/colorOnSurface"
                         android:maxLines="1"
                         android:ellipsize="end"
                         android:layout_marginStart="8dp" />
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -188,7 +188,7 @@
                         android:layout_weight="1"
                         android:text="模型"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_api_model"
                         android:layout_width="wrap_content"
@@ -196,10 +196,10 @@
                         android:text="—"
                         android:textSize="14sp"
                         android:textStyle="bold"
-                        android:textColor="@color/md_theme_on_surface" />
+                        android:textColor="?attr/colorOnSurface" />
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/md_theme_surface_variant" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="?attr/colorSurfaceVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -213,7 +213,7 @@
                         android:layout_weight="1"
                         android:text="连通性"
                         android:textSize="14sp"
-                        android:textColor="@color/md_theme_on_surface_variant" />
+                        android:textColor="?attr/colorOnSurfaceVariant" />
                     <TextView
                         android:id="@+id/text_api_connectivity"
                         android:layout_width="wrap_content"
