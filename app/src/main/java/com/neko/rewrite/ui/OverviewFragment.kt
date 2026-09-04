@@ -46,6 +46,13 @@ class OverviewFragment : Fragment() {
         textApiModel = view.findViewById(R.id.text_api_model)
         textApiConnectivity = view.findViewById(R.id.text_api_connectivity)
         textConfigStore = view.findViewById(R.id.text_config_store)
+
+        view.findViewById<View>(R.id.btn_about).setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, AboutFragment())
+                .addToBackStack(null)
+                .commit()
+        }
     }
 
     override fun onResume() {
