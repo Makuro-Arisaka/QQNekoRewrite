@@ -9,7 +9,6 @@ import androidx.fragment.app.Fragment
 import com.neko.rewrite.ConfigManager
 import com.neko.rewrite.LogRecorder
 import com.neko.rewrite.R
-import com.neko.rewrite.ui.LogFragment
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import java.io.File
@@ -52,13 +51,6 @@ class OverviewFragment : Fragment() {
         view.findViewById<View>(R.id.btn_about).setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, AboutFragment())
-                .addToBackStack(null)
-                .commit()
-        }
-
-        view.findViewById<View>(R.id.btn_logs).setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, LogFragment())
                 .addToBackStack(null)
                 .commit()
         }

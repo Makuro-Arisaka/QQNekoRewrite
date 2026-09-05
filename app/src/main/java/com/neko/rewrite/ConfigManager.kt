@@ -117,9 +117,8 @@ object ConfigManager {
 
     /**
      * 模块进程内读取自己 SP 中的完整配置。
-     * 用于不经过 UI 构造完整广播（例如日志页切换「启用日志」时，
-     * 需要把当前已保存的真实配置连同 logEnabled 一起发给 QQ，
-     * 不能从内存里的默认 config 重建，否则会清掉用户已填的 API Key）。
+     * 用于不经过 UI 构造完整广播（例如设置页保存配置时，需要把当前已保存的真实配置
+     * 连同所有字段一起发给 QQ，不能从内存里的默认 config 重建，否则会清掉用户已填的 API Key）。
      */
     fun readLocalConfig(context: Context): ModuleConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -160,7 +159,6 @@ object ConfigManager {
                     showToast = prefs.getBoolean("show_toast", true),
                     showStartupToast = prefs.getBoolean("show_startup_toast", false),
                     quickToggle = prefs.getBoolean("quick_toggle", false),
-                    logEnabled = prefs.getBoolean("log_enabled", false),
                     asyncRewrite = prefs.getBoolean("async_rewrite", true),
                     rewriteTimeoutMs = prefs.getInt("rewrite_timeout_ms", 8000),
                     filterMode = prefs.getInt("filter_mode", 0),
@@ -268,7 +266,6 @@ object ConfigManager {
             .putBoolean("show_toast", newConfig.showToast)
             .putBoolean("show_startup_toast", newConfig.showStartupToast)
             .putBoolean("quick_toggle", newConfig.quickToggle)
-            .putBoolean("log_enabled", newConfig.logEnabled)
             .putBoolean("async_rewrite", newConfig.asyncRewrite)
             .putInt("rewrite_timeout_ms", newConfig.rewriteTimeoutMs)
             .putInt("filter_mode", newConfig.filterMode)
@@ -286,6 +283,7 @@ object ConfigManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         applyTo(prefs.edit(), incoming).commit()
         config = incoming
+        source = Source.QQ_PREFS
         XposedBridge.log("[NekoRewrite] 📡 配置已热更新 (ts=${incoming.lastUpdated}) 模型=${incoming.model}")
     }
 

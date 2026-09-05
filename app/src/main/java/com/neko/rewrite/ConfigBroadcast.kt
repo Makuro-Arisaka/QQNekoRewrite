@@ -32,7 +32,6 @@ object ConfigBroadcast {
             putExtra(MainHook.EXTRA_SHOW_TOAST, config.showToast)
             putExtra(MainHook.EXTRA_SHOW_STARTUP_TOAST, config.showStartupToast)
             putExtra(MainHook.EXTRA_QUICK_TOGGLE, config.quickToggle)
-            putExtra(MainHook.EXTRA_LOG_ENABLED, config.logEnabled)
             putExtra(MainHook.EXTRA_ASYNC_REWRITE, config.asyncRewrite)
             putExtra(MainHook.EXTRA_REWRITE_TIMEOUT, config.rewriteTimeoutMs)
             putExtra(MainHook.EXTRA_FILTER_MODE, config.filterMode)

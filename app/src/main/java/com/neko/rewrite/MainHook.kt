@@ -32,7 +32,6 @@ class MainHook : IXposedHookLoadPackage {
         const val EXTRA_SHOW_TOAST = "show_toast"
         const val EXTRA_SHOW_STARTUP_TOAST = "show_startup_toast"
         const val EXTRA_QUICK_TOGGLE = "quick_toggle"
-        const val EXTRA_LOG_ENABLED = "log_enabled"
         const val EXTRA_ASYNC_REWRITE = "async_rewrite"
         const val EXTRA_REWRITE_TIMEOUT = "rewrite_timeout_ms"
         const val EXTRA_FILTER_MODE = "filter_mode"
@@ -74,11 +73,10 @@ class MainHook : IXposedHookLoadPackage {
                             ConfigManager.init(context)
                             XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
 
-                            // 必须在配置加载之后再初始化日志：logEnabled 决定 QQ 进程是否落盘
-                            LogRecorder.initFromQqContext(context, ConfigManager.config.logEnabled)
-                            XposedBridge.log("[NekoRewrite] 📋 日志系统: ${if (LogRecorder.isReady) "OK" else "降级模式"}")
+                            // 日志诊断走 Logcat；挂载心跳供概览页判断「模块是否真的在 QQ 里生效」
+                            LogRecorder.initFromQqContext(context)
+                            XposedBridge.log("[NekoRewrite] 📋 日志系统已初始化（诊断信息输出到 Logcat）")
 
-                            // 供概览页判断「模块是否真的在 QQ 里生效」
                             LogRecorder.markMounted(context, processName)
 
                             // 传入 QQ Context 给消息拦截器（用于 Toast）
@@ -155,7 +153,6 @@ class MainHook : IXposedHookLoadPackage {
                         showToast = intent.getBooleanExtra(EXTRA_SHOW_TOAST, true),
                         showStartupToast = intent.getBooleanExtra(EXTRA_SHOW_STARTUP_TOAST, prefs.getBoolean("show_startup_toast", false)),
                         quickToggle = intent.getBooleanExtra(EXTRA_QUICK_TOGGLE, prefs.getBoolean("quick_toggle", false)),
-                        logEnabled = intent.getBooleanExtra(EXTRA_LOG_ENABLED, prefs.getBoolean("log_enabled", false)),
                         asyncRewrite = intent.getBooleanExtra(EXTRA_ASYNC_REWRITE, prefs.getBoolean("async_rewrite", true)),
                         rewriteTimeoutMs = intent.getIntExtra(EXTRA_REWRITE_TIMEOUT, prefs.getInt("rewrite_timeout_ms", 8000)),
                         filterMode = intent.getIntExtra(EXTRA_FILTER_MODE, prefs.getInt("filter_mode", 0)),
@@ -170,10 +167,6 @@ class MainHook : IXposedHookLoadPackage {
 
             ConfigManager.applyBroadcast(context, incoming)
             LogRecorder.success("Config", "广播更新配置: 模型=${incoming.model} ts=${incoming.lastUpdated}")
-
-            // 日志开关可能随本次配置改变：按最新 logEnabled 重新初始化 QQ 侧日志写入，
-            // 避免用户要重启 QQ 才能开始/停止记录
-            LogRecorder.initFromQqContext(context, incoming.logEnabled)
 
             // 通知栏开关的显隐可能随本次配置改变，同步刷新
             refreshQuickToggle(context)
@@ -220,6 +213,15 @@ class MainHook : IXposedHookLoadPackage {
      * @param retry true = QQ 启动阶段，额外做两次延迟重发（防止被启动过程清掉）
      */
     private fun refreshQuickToggle(context: Context, retry: Boolean = false) {
+        // 配置未真正加载（回落默认值）时不据此取消通知。
+        // QQ 是多进程，每个进程的 Application.onCreate 都会跑到这里；
+        // 没收到过广播、且 XSharedPreferences 在该进程读不到的进程会回落默认（quickToggle=false），
+        // 若据此取消会把其它进程刚发布的通知误删 —— 表现为「进入 QQ 后通知就消失」。
+        // 仅在配置确实从某个来源读到时，才按 quickToggle 决定显示/移除。
+        if (ConfigManager.source == ConfigManager.Source.DEFAULT) {
+            LogRecorder.warn("QuickToggle", "配置未加载（默认态），跳过通知刷新，避免误删既有通知")
+            return
+        }
         try {
             if (ConfigManager.config.quickToggle) {
                 LogRecorder.info("QuickToggle", "配置要求显示常驻通知，正在发布...")

@@ -44,9 +44,6 @@ class MainActivity : AppCompatActivity() {
         setupImmersiveSystemBars()
         setContentView(R.layout.activity_main)
 
-        // 注：不再于启动时强制申请「所有文件访问」。该权限仅在用户于「运行日志」页
-        // 主动开启日志时按需请求（见 LogFragment），避免一进 App 就弹系统设置页。
-
         LogRecorder.init(this)
 
         bottomNav = findViewById(R.id.bottom_navigation)
@@ -72,9 +69,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 用户可能在上面那步刚授予「所有文件访问」，回来后把日志目标切到共享目录，
-        // 这样 QQ 进程写的日志模块进程才读得到
-        LogRecorder.reinit(this)
     }
 
     /**
