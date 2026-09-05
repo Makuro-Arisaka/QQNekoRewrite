@@ -147,10 +147,10 @@ class OverviewFragment : Fragment() {
                 minutes < 60 -> "$minutes 分钟前"
                 else -> "${minutes / 60} 小时前"
             }
-            textLsposedStatus.text = "✅ 已挂载（$ago 收到心跳）"
+            textLsposedStatus.text = "已挂载（$ago 收到心跳）"
             textLsposedStatus.setTextColor(resources.getColor(R.color.status_ok, null))
         } else {
-            textLsposedStatus.text = "⚠️ 未检测到（需在 LSPosed 启用模块并重启 QQ）"
+            textLsposedStatus.text = "未检测到（需在 LSPosed 启用模块并重启 QQ）"
             textLsposedStatus.setTextColor(resources.getColor(R.color.status_warn, null))
         }
     }
@@ -158,10 +158,10 @@ class OverviewFragment : Fragment() {
     private fun refreshModuleEnabled() {
         val enabled = prefs.getBoolean("enabled", true)
         if (enabled) {
-            textModuleEnabled.text = "✅ 已启用"
+            textModuleEnabled.text = "已启用"
             textModuleEnabled.setTextColor(resources.getColor(R.color.status_ok, null))
         } else {
-            textModuleEnabled.text = "⏸️ 已禁用"
+            textModuleEnabled.text = "已禁用"
             textModuleEnabled.setTextColor(resources.getColor(R.color.status_warn, null))
         }
     }
@@ -182,11 +182,11 @@ class OverviewFragment : Fragment() {
         val hasJson = File(requireActivity().filesDir, "neko_config.json").exists()
 
         val (label, colorId) = when {
-            timestamp <= 0L -> "⚠️ 未保存" to R.color.status_warn
-            hasPrefs && hasJson -> "✅ SP + JSON 双通道" to R.color.status_ok
-            hasPrefs -> "✅ 仅 SP" to R.color.status_ok
-            hasJson -> "✅ 仅 JSON" to R.color.status_ok
-            else -> "⚠️ 未写入文件" to R.color.status_warn
+            timestamp <= 0L -> "未保存" to R.color.status_warn
+            hasPrefs && hasJson -> "SP + JSON 双通道" to R.color.status_ok
+            hasPrefs -> "仅 SP" to R.color.status_ok
+            hasJson -> "仅 JSON" to R.color.status_ok
+            else -> "未写入文件" to R.color.status_warn
         }
         textConfigStore.text = label
         textConfigStore.setTextColor(resources.getColor(colorId, null))
@@ -215,10 +215,10 @@ class OverviewFragment : Fragment() {
 
     private fun updateConnectivityStatus(ok: Boolean) {
         if (ok) {
-            textApiConnectivity.text = "✅ 可达"
+            textApiConnectivity.text = "可达"
             textApiConnectivity.setTextColor(resources.getColor(R.color.status_ok, null))
         } else {
-            textApiConnectivity.text = "❌ 不可达"
+            textApiConnectivity.text = "不可达"
             textApiConnectivity.setTextColor(resources.getColor(R.color.status_error, null))
         }
     }
