@@ -1,7 +1,9 @@
 package com.neko.rewrite.ui
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.Intent
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -345,23 +347,100 @@ class SettingsFragment : Fragment() {
         return row
     }
 
+    /**
+     * MD3 添加白/黑名单弹窗：
+     * 上方「个人QQ | QQ群」分段选择（MaterialButtonToggleGroup），下方号码输入框
+     * （填充文本框，标签随类型联动），底部取消 + 确认。
+     * 黑名单确认按钮用错误色；号码为空或含非数字字符时确认置灰。
+     */
     private fun showAddUidDialog(isWhite: Boolean) {
-        val input = EditText(requireContext()).apply {
-            hint = "输入联系人 UID（可从日志 peer= 获取）"
-            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        val ctx = requireContext()
+        fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+        val btnQq = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            id = View.generateViewId()
+            text = "个人QQ"
         }
-        AlertDialog.Builder(requireContext())
+        val btnGroup = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            id = View.generateViewId()
+            text = "QQ群"
+        }
+        val toggle = MaterialButtonToggleGroup(ctx).apply {
+            isSingleSelection = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        toggle.addView(btnQq, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        toggle.addView(btnGroup, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        toggle.check(btnQq.id)
+
+        val input = TextInputEditText(ctx).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "请输入QQ号"
+        }
+        val inputLayout = TextInputLayout(ctx).apply {
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_FILLED
+            hint = "QQ号"
+            helperText = "支持个人QQ或QQ群号码"
+            addView(input)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(16) }
+        }
+
+        val content = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), 0)
+            addView(toggle)
+            addView(inputLayout)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(ctx)
             .setTitle(if (isWhite) "添加白名单" else "添加黑名单")
-            .setView(input)
-            .setPositiveButton("添加") { _, _ ->
-                val uid = input.text.toString().trim()
-                if (uid.isNotEmpty()) {
-                    if (isWhite) whitelist.add(uid) else blacklist.add(uid)
-                    renderLists()
-                }
-            }
+            .setView(content)
+            .setPositiveButton(if (isWhite) "添加" else "加入黑名单", null)
             .setNegativeButton("取消", null)
             .show()
+
+        val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        if (!isWhite) {
+            positive?.setTextColor(resources.getColor(R.color.md_theme_error, null))
+        }
+
+        fun validate(): Boolean {
+            val num = input.text?.toString()?.trim().orEmpty()
+            val ok = num.isNotEmpty() && num.all { it.isDigit() }
+            positive?.isEnabled = ok
+            inputLayout.error = if (ok || num.isEmpty()) null else "号码只能包含数字"
+            return ok
+        }
+
+        // 注册即回调一次当前选中态（切换类型联动标签 + 重校验）
+        toggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            if (checkedId == btnQq.id) {
+                inputLayout.hint = "QQ号"; input.hint = "请输入QQ号"
+            } else {
+                inputLayout.hint = "群号"; input.hint = "请输入群号"
+            }
+            validate()
+        }
+
+        input.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) { validate() }
+        })
+
+        positive?.isEnabled = false
+        positive?.setOnClickListener {
+            if (!validate()) return@setOnClickListener
+            val num = input.text.toString().trim()
+            if (isWhite) whitelist.add(num) else blacklist.add(num)
+            renderLists()
+            dialog.dismiss()
+        }
     }
 
     // ===== 保存 =====
