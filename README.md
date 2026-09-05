@@ -62,10 +62,6 @@ ChatApi（OpenAI 兼容 /chat/completions）
 
 模块运行在 QQ 进程，设置页在模块自身进程。配置通过**三通道冗余**（QQ 侧 SharedPreferences / `XSharedPreferences` / JSON 快照）+ `lastUpdated` 时间戳仲裁同步，QQ 重启后即使没有广播也能读到最新配置；运行中修改则通过广播即时生效。
 
-### 模块状态检测
-
-概览页的「是否已挂载」状态由 QQ 主进程每 60 秒发出的心跳广播判定（同时落盘 SP，App 重启后也能看到最近一次心跳）。超过 10 分钟无心跳视为失效（QQ 未运行 / 被冻结 / 模块未生效）。跨 UID 读写对方私有目录会被 SELinux 0700 权限阻断，因此一律使用广播而非文件传递状态。
-
 ## 自行构建
 
 ```bash
