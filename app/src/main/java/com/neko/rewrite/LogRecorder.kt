@@ -70,34 +70,76 @@ object LogRecorder {
     val logPath: String
         get() = writeTarget?.absolutePath ?: "（无可用写入位置）"
 
-    // region 初始化
+    /** 是否正在把日志写进文件（由「运行日志」页的开关控制） */
+    @Volatile
+    var fileLoggingEnabled: Boolean = false
+        private set
 
-    /** 从 QQ 进程初始化 */
-    fun initFromQqContext(qqContext: Context) {
-        setup(
-            candidates = buildList {
-                sharedExternalFile()?.let { add(it) }
-                add(File(qqContext.filesDir, LOG_FILE_NAME))            // QQ 私有目录：一定能写
-                packageFile(qqContext, MODULE_PACKAGE)?.let { add(it) } // 旧路径：能写就继续沿用
-            },
-            who = "QQ 进程"
-        )
+    // region 初始化 / 开关
+
+    /** QQ 进程初始化；@param enabled 是否启用文件日志（来自模块配置） */
+    fun initFromQqContext(qqContext: Context, enabled: Boolean) {
+        val candidates = buildList {
+            sharedExternalFile()?.let { add(it) }
+            add(File(qqContext.filesDir, LOG_FILE_NAME))            // QQ 私有目录：一定能写
+            packageFile(qqContext, MODULE_PACKAGE)?.let { add(it) } // 旧路径：能写就继续沿用
+        }
+        prepare(candidates)
+        if (enabled) enableFrom(candidates, who = "QQ 进程")
     }
 
-    /** 从模块自身进程初始化（设置页调用） */
+    /** 模块进程初始化：只登记读取候选，不创建任何文件（等用户在日志页开启） */
     fun init(context: Context) {
-        if (isReady && writeTarget != null) return
-        setup(moduleCandidates(context), who = "模块进程")
+        if (readCandidates.isNotEmpty()) return
+        prepare(moduleCandidates(context))
+    }
+
+    /** 权限状态变化后（例如刚授予「所有文件访问」）重新评估写入目标 */
+    fun reinit(context: Context) {
+        val candidates = moduleCandidates(context)
+        val shared = sharedExternalFile()
+        val changed = shared != null && writeTarget?.absolutePath != shared.absolutePath
+        if (readCandidates.isEmpty() || changed) {
+            prepare(candidates)
+            if (fileLoggingEnabled || writeTarget == null) {
+                // 已开启则重新挑目标；未开启时若之前失败过也再试一次
+                if (fileLoggingEnabled) enableFrom(candidates, who = "模块进程")
+            }
+        }
     }
 
     /**
-     * 权限状态变化后重新挑选写入目标（例如用户刚授予「所有文件访问」）。
-     * 只有在共享目录变得可用、且当前还没用上它时才切换，避免每次 onResume 都刷日志。
+     * 开启文件日志（日志页开关调用）：挑一个可写目标并真实试写。
+     * @return 是否成功；false = 没有任何可写位置，调用方应保持开关关闭
      */
-    fun reinit(context: Context) {
-        val shared = sharedExternalFile() ?: return
-        if (writeTarget?.absolutePath == shared.absolutePath) return
-        setup(moduleCandidates(context), who = "模块进程")
+    fun enable(context: Context): Boolean = enableFrom(moduleCandidates(context), who = "模块进程")
+
+    /** 关闭文件日志：不再落盘，但已经产生的日志文件仍可阅读/导出 */
+    fun disable() {
+        fileLoggingEnabled = false
+        Log.i(TAG, "文件日志已关闭")
+    }
+
+    private fun enableFrom(candidates: List<File>, who: String): Boolean {
+        val target = candidates.firstOrNull { isWritable(it) }
+        writeTarget = target
+        isReady = target != null
+        fileLoggingEnabled = target != null
+
+        if (target == null) {
+            Log.w(TAG, "无法开启文件日志：没有任何可写位置")
+            return false
+        }
+        // 让另一个进程有机会读到本进程私有目录里的日志（best effort）
+        relaxPermissions(target)
+        log("LogRecorder", "文件日志已开启（$who）: $logPath", Level.SUCCESS)
+        return true
+    }
+
+    private fun prepare(candidates: List<File>) {
+        readCandidates.clear()
+        readCandidates.addAll(candidates)
+        sharedFile = candidates.firstOrNull()
     }
 
     private fun moduleCandidates(context: Context): List<File> = buildList {
@@ -106,38 +148,15 @@ object LogRecorder {
         packageFile(context, QQ_PACKAGE)?.let { add(it) } // QQ 私有目录（若 QQ 已放开权限）
     }
 
-    private fun setup(candidates: List<File>, who: String) {
-        readCandidates.clear()
-        readCandidates.addAll(candidates)
-        sharedFile = candidates.firstOrNull()
-
-        writeTarget = candidates.firstOrNull { isWritable(it) }
-        isReady = writeTarget != null
-
-        // 让另一个进程有机会读到本进程私有目录里的日志（best effort）
-        relaxPermissions(writeTarget)
-
-        log(
-            "LogRecorder",
-            "日志系统就绪（$who）: $logPath",
-            if (isReady) Level.INFO else Level.WARN
-        )
-    }
-
     /**
      * 共享外部存储上的日志文件 —— 两个进程都能写、都能读，是唯一能跨进程汇总的位置。
      * Android 11+ 起公共目录不再允许 File 直写（除非持有「所有文件访问」），
      * 未授权时返回 null，交给后续候选兜底。
      */
     private fun sharedExternalFile(): File? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-            return null
-        }
         return try {
             val base = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-            val dir = File(base, SHARED_DIR_NAME)
-            if (!dir.exists() && !dir.mkdirs()) return null
-            File(dir, LOG_FILE_NAME)
+            File(File(base, SHARED_DIR_NAME), LOG_FILE_NAME)
         } catch (_: Exception) {
             null
         }

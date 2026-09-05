@@ -1,13 +1,9 @@
 package com.neko.rewrite
 
-import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -16,14 +12,14 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.color.DynamicColors
-import com.neko.rewrite.ui.LogFragment
 import com.neko.rewrite.ui.OverviewFragment
 import com.neko.rewrite.ui.SettingsFragment
 
 /**
  * 主 Activity — Material You 底部导航
  *
- * 3 个标签页：概览 | 设置 | 日志
+ * 2 个标签页：概览 | 设置。运行日志是概览页里的二级页（在「关于」上方入口进入），
+ * 不再占用底部导航位。
  *
  * 沉浸式系统栏 + 动态取色（参照 LSPosed 管理器这类 Material3 应用的做法）：
  *  - Android 12+ 通过 [DynamicColors] 应用 Material You（Monet）动态取色，
@@ -37,7 +33,6 @@ class MainActivity : AppCompatActivity() {
 
     private val overviewFragment = OverviewFragment()
     private val settingsFragment = SettingsFragment()
-    private val logFragment = LogFragment()
     private var activeFragment: Fragment = overviewFragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,15 +44,8 @@ class MainActivity : AppCompatActivity() {
         setupImmersiveSystemBars()
         setContentView(R.layout.activity_main)
 
-        // Android 11+ 需要"所有文件访问"权限才能写入 /sdcard
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-            }
-        }
+        // 注：不再于启动时强制申请「所有文件访问」。该权限仅在用户于「运行日志」页
+        // 主动开启日志时按需请求（见 LogFragment），避免一进 App 就弹系统设置页。
 
         LogRecorder.init(this)
 
@@ -66,7 +54,6 @@ class MainActivity : AppCompatActivity() {
 
         // 添加所有 fragment（隐藏除概览外的所有）
         supportFragmentManager.beginTransaction().apply {
-            add(R.id.fragment_container, logFragment, LogFragment.TAG).hide(logFragment)
             add(R.id.fragment_container, settingsFragment, SettingsFragment.TAG).hide(settingsFragment)
             add(R.id.fragment_container, overviewFragment, OverviewFragment.TAG)
         }.commit()
@@ -75,7 +62,6 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_overview -> switchFragment(overviewFragment)
                 R.id.nav_settings -> switchFragment(settingsFragment)
-                R.id.nav_logs -> switchFragment(logFragment)
                 else -> false
             }
         }

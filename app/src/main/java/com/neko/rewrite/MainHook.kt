@@ -32,6 +32,7 @@ class MainHook : IXposedHookLoadPackage {
         const val EXTRA_SHOW_TOAST = "show_toast"
         const val EXTRA_SHOW_STARTUP_TOAST = "show_startup_toast"
         const val EXTRA_QUICK_TOGGLE = "quick_toggle"
+        const val EXTRA_LOG_ENABLED = "log_enabled"
         const val EXTRA_ASYNC_REWRITE = "async_rewrite"
         const val EXTRA_REWRITE_TIMEOUT = "rewrite_timeout_ms"
         const val EXTRA_FILTER_MODE = "filter_mode"
@@ -70,14 +71,15 @@ class MainHook : IXposedHookLoadPackage {
                             val context = param.thisObject as android.content.Context
                             XposedBridge.log("[NekoRewrite] 📱 QQ Application.onCreate 已触发")
 
-                            LogRecorder.initFromQqContext(context)
+                            ConfigManager.init(context)
+                            XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
+
+                            // 必须在配置加载之后再初始化日志：logEnabled 决定 QQ 进程是否落盘
+                            LogRecorder.initFromQqContext(context, ConfigManager.config.logEnabled)
                             XposedBridge.log("[NekoRewrite] 📋 日志系统: ${if (LogRecorder.isReady) "OK" else "降级模式"}")
 
                             // 供概览页判断「模块是否真的在 QQ 里生效」
                             LogRecorder.markMounted(context, processName)
-
-                            ConfigManager.init(context)
-                            XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
 
                             // 传入 QQ Context 给消息拦截器（用于 Toast）
                             MessageInterceptor.setContext(context)
@@ -153,6 +155,7 @@ class MainHook : IXposedHookLoadPackage {
                         showToast = intent.getBooleanExtra(EXTRA_SHOW_TOAST, true),
                         showStartupToast = intent.getBooleanExtra(EXTRA_SHOW_STARTUP_TOAST, prefs.getBoolean("show_startup_toast", false)),
                         quickToggle = intent.getBooleanExtra(EXTRA_QUICK_TOGGLE, prefs.getBoolean("quick_toggle", false)),
+                        logEnabled = intent.getBooleanExtra(EXTRA_LOG_ENABLED, prefs.getBoolean("log_enabled", false)),
                         asyncRewrite = intent.getBooleanExtra(EXTRA_ASYNC_REWRITE, prefs.getBoolean("async_rewrite", true)),
                         rewriteTimeoutMs = intent.getIntExtra(EXTRA_REWRITE_TIMEOUT, prefs.getInt("rewrite_timeout_ms", 8000)),
                         filterMode = intent.getIntExtra(EXTRA_FILTER_MODE, prefs.getInt("filter_mode", 0)),
@@ -167,6 +170,10 @@ class MainHook : IXposedHookLoadPackage {
 
             ConfigManager.applyBroadcast(context, incoming)
             LogRecorder.success("Config", "广播更新配置: 模型=${incoming.model} ts=${incoming.lastUpdated}")
+
+            // 日志开关可能随本次配置改变：按最新 logEnabled 重新初始化 QQ 侧日志写入，
+            // 避免用户要重启 QQ 才能开始/停止记录
+            LogRecorder.initFromQqContext(context, incoming.logEnabled)
 
             // 通知栏开关的显隐可能随本次配置改变，同步刷新
             refreshQuickToggle(context)

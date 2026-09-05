@@ -15,8 +15,8 @@ import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputLayout
 import com.neko.rewrite.ApiProbe
+import com.neko.rewrite.ConfigBroadcast
 import com.neko.rewrite.ConfigManager
-import com.neko.rewrite.MainHook
 import com.neko.rewrite.PromptManager
 import com.neko.rewrite.ProviderPresets
 import com.neko.rewrite.R
@@ -377,27 +377,8 @@ class SettingsFragment : Fragment() {
             // QQ 重启后即使没有广播也能读到这份配置
             val timestamp = ConfigManager.saveFromSettings(requireActivity(), newConfig)
 
-            val intent = Intent(MainHook.ACTION_CONFIG_UPDATE).apply {
-                setPackage("com.tencent.mobileqq")
-                putExtra(MainHook.EXTRA_API_KEY, apiKey)
-                putExtra(MainHook.EXTRA_API_ENDPOINT, endpoint)
-                putExtra(MainHook.EXTRA_MODEL, model)
-                putExtra(MainHook.EXTRA_PROVIDER, provider)
-                putExtra(MainHook.EXTRA_TEMPERATURE, temperature)
-                putExtra(MainHook.EXTRA_MAX_TOKENS, maxTokens)
-                putExtra(MainHook.EXTRA_PROMPT, prompt)
-                putExtra(MainHook.EXTRA_ENABLED, switchEnabled.isChecked)
-                putExtra(MainHook.EXTRA_SHOW_TOAST, switchShowToast.isChecked)
-                putExtra(MainHook.EXTRA_SHOW_STARTUP_TOAST, switchStartupToast.isChecked)
-                putExtra(MainHook.EXTRA_QUICK_TOGGLE, switchQuickToggle.isChecked)
-                putExtra(MainHook.EXTRA_ASYNC_REWRITE, switchAsyncRewrite.isChecked)
-                putExtra(MainHook.EXTRA_REWRITE_TIMEOUT, rewriteTimeout)
-                putExtra(MainHook.EXTRA_FILTER_MODE, filterMode)
-                putStringArrayListExtra(MainHook.EXTRA_WHITELIST, ArrayList(whitelist))
-                putStringArrayListExtra(MainHook.EXTRA_BLACKLIST, ArrayList(blacklist))
-                putExtra(MainHook.EXTRA_LAST_UPDATED, timestamp)
-            }
-            requireActivity().sendBroadcast(intent)
+            // 通过广播把完整配置即时同步给 QQ（含本页未改动的字段，避免覆盖）
+            ConfigBroadcast.send(requireActivity(), newConfig, timestamp)
 
             showStatus(
                 if (apiKey.isEmpty()) "配置已保存，但 API Key 未填写 —— 改写不会生效"

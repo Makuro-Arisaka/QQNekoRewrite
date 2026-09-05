@@ -7,12 +7,23 @@
     android:background="?attr/colorSurface"
     android:padding="16dp">
 
+    <!-- 顶部：返回 + 标题 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_log_back"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="← 返回"
+            android:textSize="12sp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            style="@style/Widget.Material3.Button.TextButton" />
 
         <TextView
             android:layout_width="0dp"
@@ -22,71 +33,140 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="?attr/colorPrimary" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_refresh_log"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="刷新"
-            android:textSize="12sp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            style="@style/Widget.Material3.Button.TextButton" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_clear_log"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="清空"
-            android:textSize="12sp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            style="@style/Widget.Material3.Button.TextButton" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_export_log"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="导出"
-            android:textSize="12sp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            style="@style/Widget.Material3.Button.TextButton" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/text_log_path"
+    <!-- 启用开关卡片 -->
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.Material3.CardView.Filled"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="8dp"
-        android:text="日志文件：—"
-        android:textSize="11sp"
-        android:fontFamily="monospace"
-        android:textColor="?attr/colorOnSurfaceVariant" />
+        android:layout_marginBottom="12dp">
 
-    <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="启用运行日志"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switch_log_enabled"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_log_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="○ 已停止"
+                android:textSize="13sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="开启后会记录 QQ 的改写过程（含原文与 AI 返回），需要授予「所有文件访问」权限。日志仅存于本机，关闭即停止写入。"
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 日志面板 -->
+    <LinearLayout
+        android:id="@+id/card_log_panel"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        style="@style/Widget.Material3.CardView.Filled">
+        android:orientation="vertical">
 
-        <ScrollView
-            android:id="@+id/log_scroll"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp">
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="8dp">
 
             <TextView
-                android:id="@+id/text_log"
-                android:layout_width="match_parent"
+                android:id="@+id/text_log_path"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="等待日志..."
+                android:layout_weight="1"
+                android:text="（日志功能未启用）"
                 android:textSize="11sp"
-                android:textColor="?attr/colorOnSurface"
                 android:fontFamily="monospace"
-                android:textIsSelectable="true"
-                android:gravity="top|start" />
-        </ScrollView>
-    </com.google.android.material.card.MaterialCardView>
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_refresh_log"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="刷新"
+                android:textSize="12sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                style="@style/Widget.Material3.Button.TextButton" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_clear_log"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="清空"
+                android:textSize="12sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                style="@style/Widget.Material3.Button.TextButton" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_export_log"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="导出"
+                android:textSize="12sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                style="@style/Widget.Material3.Button.TextButton" />
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            style="@style/Widget.Material3.CardView.Filled">
+
+            <ScrollView
+                android:id="@+id/log_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/text_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="日志功能未开启。"
+                    android:textSize="11sp"
+                    android:textColor="?attr/colorOnSurface"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true"
+                    android:gravity="top|start" />
+            </ScrollView>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
 
 </LinearLayout>
