@@ -1,5 +1,6 @@
 package com.neko.rewrite.ui
 
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -28,6 +29,16 @@ class OverviewFragment : Fragment() {
     private lateinit var textConfigStore: TextView
 
     private val prefs by lazy { requireActivity().getSharedPreferences(ConfigManager.PREFS_NAME, android.content.Context.MODE_PRIVATE) }
+
+    /**
+     * 监听模块 SP 变化：QS 磁贴（与 App 同进程）点按时会改写 enabled，
+     * 必须实时刷新本页的「模块状态」，否则 App 内用磁贴开关后概览页不更新。
+     * 用 view?.post 把 UI 更新抛回主线程（磁贴 commit 在 Binder 线程）。
+     */
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        view?.post { refreshModuleStatus() }
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
@@ -54,6 +65,9 @@ class OverviewFragment : Fragment() {
                 .addToBackStack(null)
                 .commit()
         }
+
+        // 注册 SP 监听，App 内用 QS 磁贴开关时实时刷新
+        prefs.registerOnSharedPreferenceChangeListener(prefListener)
     }
 
     override fun onResume() {
@@ -73,6 +87,7 @@ class OverviewFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         refreshJob?.cancel()
+        prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
     }
 
     private fun refreshAll() {
@@ -118,6 +133,12 @@ class OverviewFragment : Fragment() {
             textModuleEnabled.text = "⏸️ 已禁用"
             textModuleEnabled.setTextColor(resources.getColor(R.color.status_warn, null))
         }
+    }
+
+    /** SP 被外部改动（如 QS 磁贴切换）时刷新模块启停状态与配置落盘指示（不含联网探测） */
+    private fun refreshModuleStatus() {
+        refreshModuleEnabled()
+        refreshConfigStore()
     }
 
     /**

@@ -2,6 +2,7 @@ package com.neko.rewrite.ui
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -67,6 +68,18 @@ class SettingsFragment : Fragment() {
 
     private val prefs by lazy { requireActivity().getSharedPreferences(ConfigManager.PREFS_NAME, android.content.Context.MODE_PRIVATE) }
 
+    /**
+     * 监听模块 SP 变化：QS 磁贴（与 App 同进程）点按时会改写 enabled，
+     * 必须实时同步「启用」开关，否则 App 内用磁贴开关后设置页开关不更新。
+     * 用 view?.post 抛回主线程（磁贴 commit 在 Binder 线程），并静默设置开关避免触发保存。
+     */
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        // key 为 null 表示批量改动（saveFromSettings 一次写多字段），此时也要同步
+        if (key == "enabled" || key == null) {
+            view?.post { setSwitchEnabledQuietly(prefs.getBoolean("enabled", true)) }
+        }
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_settings, container, false)
     }
@@ -106,11 +119,19 @@ class SettingsFragment : Fragment() {
         setupProviderSpinner()
         loadConfig()
         setupListeners()
+
+        // 注册 SP 监听，App 内用 QS 磁贴开关时实时同步启用开关
+        prefs.registerOnSharedPreferenceChangeListener(prefListener)
     }
 
     override fun onPause() {
         super.onPause()
         saveConfig()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
     }
 
     /**
@@ -119,7 +140,21 @@ class SettingsFragment : Fragment() {
      */
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
-        if (hidden) saveConfig(auto = true)
+        if (hidden) {
+            saveConfig(auto = true)
+        } else {
+            // 切回本页时若 SP 已被 QS 磁贴改动，同步启用开关（静默，避免误保存）
+            setSwitchEnabledQuietly(prefs.getBoolean("enabled", true))
+        }
+    }
+
+    /** 静默设置启用开关：临时摘掉监听器，避免外部改动经 onCheckedChanged 触发一次保存 */
+    private fun setSwitchEnabledQuietly(enabled: Boolean) {
+        if (!::switchEnabled.isInitialized || view == null) return
+        if (switchEnabled.isChecked == enabled) return
+        switchEnabled.setOnCheckedChangeListener(null)
+        switchEnabled.isChecked = enabled
+        switchEnabled.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
     }
 
     private fun setupProviderSpinner() {
