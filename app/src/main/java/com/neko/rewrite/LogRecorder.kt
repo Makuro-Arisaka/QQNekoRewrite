@@ -9,7 +9,7 @@ import java.util.*
  *
  * 说明：运行日志查看页已移除，本类不再落盘写文件。
  * 诊断信息通过 Logcat 输出（Xposed 框架 / Logcat 可捕获）。
- * 「模块是否已在 QQ 中生效」的检测改由 [LspStatus] 心跳广播承担
+ * 模块是否已在 QQ 中生效的检测曾由心跳广播承担，v0.105 起随概览页 LSP 状态一并移除
  * （跨 UID 文件读取被 0700 目录与 SELinux 双重阻断，实测不可行）。
  */
 object LogRecorder {

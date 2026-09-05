@@ -1,11 +1,6 @@
 package com.neko.rewrite.ui
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.SharedPreferences
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,7 +8,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.neko.rewrite.ConfigManager
-import com.neko.rewrite.LspStatus
 import com.neko.rewrite.R
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -24,14 +18,15 @@ class OverviewFragment : Fragment() {
 
     companion object {
         const val TAG = "OverviewFragment"
+        const val GITHUB_URL = "https://github.com/Makuro-Arisaka/QQNekoRewrite"
     }
 
-    private lateinit var textLsposedStatus: TextView
     private lateinit var textModuleEnabled: TextView
     private lateinit var textApiEndpoint: TextView
     private lateinit var textApiModel: TextView
     private lateinit var textApiConnectivity: TextView
     private lateinit var textConfigStore: TextView
+    private lateinit var textAppVersion: TextView
 
     private val prefs by lazy { requireActivity().getSharedPreferences(ConfigManager.PREFS_NAME, android.content.Context.MODE_PRIVATE) }
 
@@ -43,9 +38,6 @@ class OverviewFragment : Fragment() {
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         view?.post { refreshModuleStatus() }
     }
-
-    /** QQ 进程发来的 LSP 心跳广播接收器（onViewCreated 注册，onDestroyView 注销） */
-    private var heartbeatReceiver: BroadcastReceiver? = null
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -60,46 +52,28 @@ class OverviewFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        textLsposedStatus = view.findViewById(R.id.text_lsposed_status)
         textModuleEnabled = view.findViewById(R.id.text_module_enabled)
         textApiEndpoint = view.findViewById(R.id.text_api_endpoint)
         textApiModel = view.findViewById(R.id.text_api_model)
         textApiConnectivity = view.findViewById(R.id.text_api_connectivity)
         textConfigStore = view.findViewById(R.id.text_config_store)
+        textAppVersion = view.findViewById(R.id.text_app_version)
 
-        view.findViewById<View>(R.id.btn_about).setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .setCustomAnimations(
-                    R.anim.slide_in_right, R.anim.slide_out_left,
-                    R.anim.slide_in_left, R.anim.slide_out_right
-                )
-                .replace(R.id.fragment_container, AboutFragment())
-                .addToBackStack(null)
-                .commit()
+        textAppVersion.text = try {
+            val info = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
+            "版本 ${info.versionName} (${info.longVersionCode})"
+        } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            "版本未知"
+        }
+
+        view.findViewById<View>(R.id.btn_about_github).setOnClickListener {
+            runCatching {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(GITHUB_URL)))
+            }
         }
 
         // 注册 SP 监听，App 内用 QS 磁贴开关时实时刷新
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
-
-        // 注册 LSP 心跳广播：QQ 里的模块每 60 秒发一次
-        heartbeatReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                if (intent.action != LspStatus.ACTION_HEARTBEAT) return
-                LspStatus.onHeartbeat(
-                    prefs,
-                    intent.getStringExtra(LspStatus.EXTRA_PROC),
-                    intent.getLongExtra(LspStatus.EXTRA_TS, 0L)
-                )
-                view?.post { if (view != null) refreshLsposedStatus() }
-            }
-        }
-        val filter = IntentFilter(LspStatus.ACTION_HEARTBEAT)
-        if (Build.VERSION.SDK_INT >= 33) {
-            requireActivity().registerReceiver(heartbeatReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            requireActivity().registerReceiver(heartbeatReceiver, filter)
-        }
     }
 
     override fun onResume() {
@@ -120,42 +94,16 @@ class OverviewFragment : Fragment() {
         super.onDestroyView()
         refreshJob?.cancel()
         prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
-        heartbeatReceiver?.let { requireActivity().unregisterReceiver(it) }
-        heartbeatReceiver = null
     }
 
     private fun refreshAll() {
         refreshJob?.cancel()
         refreshJob = CoroutineScope(Dispatchers.Main).launch {
-            refreshLsposedStatus()
             refreshModuleEnabled()
             refreshConfigStore()
             refreshApiConfig()
             val apiOk = withContext(Dispatchers.IO) { testApiConnectivity() }
             updateConnectivityStatus(apiOk)
-        }
-    }
-
-    /**
-     * 是否已在 QQ 中生效：以 QQ 主进程发来的心跳广播为准（每 60 秒一次，
-     * 同时落盘 SP，App 重启后也能看到最近一次心跳）。
-     * 超过 10 分钟无心跳视为失效（QQ 未运行 / 被冻结 / 模块未生效）。
-     */
-    private fun refreshLsposedStatus() {
-        val mount = LspStatus.lastHeartbeat(prefs)
-
-        if (mount != null && LspStatus.isFresh(mount.first)) {
-            val minutes = (System.currentTimeMillis() - mount.first) / 60_000L
-            val ago = when {
-                minutes < 1 -> "刚刚"
-                minutes < 60 -> "$minutes 分钟前"
-                else -> "${minutes / 60} 小时前"
-            }
-            textLsposedStatus.text = "已挂载（$ago 收到心跳）"
-            textLsposedStatus.setTextColor(resources.getColor(R.color.status_ok, null))
-        } else {
-            textLsposedStatus.text = "未检测到（需在 LSPosed 启用模块并重启 QQ）"
-            textLsposedStatus.setTextColor(resources.getColor(R.color.status_warn, null))
         }
     }
 
