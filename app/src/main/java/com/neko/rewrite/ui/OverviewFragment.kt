@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.neko.rewrite.ConfigManager
+import com.neko.rewrite.LogRecorder
 import com.neko.rewrite.R
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -57,7 +58,16 @@ class OverviewFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        refreshAll()
+        if (view != null) refreshAll()
+    }
+
+    /**
+     * 底栏用 hide/show 切换 Fragment，切回来不会触发 [onResume]，
+     * 必须在这里刷新，否则设置页改完开关后概览仍是旧状态。
+     */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (!hidden && view != null) refreshAll()
     }
 
     override fun onDestroyView() {
@@ -77,18 +87,24 @@ class OverviewFragment : Fragment() {
         }
     }
 
+    /**
+     * 是否已在 QQ 中生效：以 QQ 进程写入的「挂载心跳」为准。
+     * 心跳超过 24 小时视为失效（期间模块可能已被停用/卸载）。
+     */
     private fun refreshLsposedStatus() {
-        val hasConfig = prefs.contains("api_key") && (prefs.getString("api_key", "") ?: "").isNotEmpty()
-        val hasLog = try {
-            val logFile = java.io.File(requireActivity().filesDir, "neko_rewrite.log")
-            logFile.exists() && logFile.length() > 0
-        } catch (_: Exception) { false }
+        val mount = LogRecorder.lastMounted()
+        val minutes = mount?.let { (System.currentTimeMillis() - it.first) / 60_000L }
 
-        if (hasConfig || hasLog) {
-            textLsposedStatus.text = "✅ 已挂载"
+        if (mount != null && minutes != null && minutes < 24 * 60) {
+            val ago = when {
+                minutes < 1 -> "刚刚"
+                minutes < 60 -> "${minutes} 分钟前"
+                else -> "${minutes / 60} 小时前"
+            }
+            textLsposedStatus.text = "✅ 已挂载（${mount.second} · $ago）"
             textLsposedStatus.setTextColor(resources.getColor(R.color.status_ok, null))
         } else {
-            textLsposedStatus.text = "⚠️ 未检测到"
+            textLsposedStatus.text = "⚠️ 未检测到（需在 LSPosed 启用模块并重启 QQ）"
             textLsposedStatus.setTextColor(resources.getColor(R.color.status_warn, null))
         }
     }

@@ -84,6 +84,13 @@ class MainActivity : AppCompatActivity() {
         bottomNav.selectedItemId = R.id.nav_overview
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 用户可能在上面那步刚授予「所有文件访问」，回来后把日志目标切到共享目录，
+        // 这样 QQ 进程写的日志模块进程才读得到
+        LogRecorder.reinit(this)
+    }
+
     /**
      * 让窗口内容延伸到状态栏 / 导航栏（含手势小白条）之下：
      *  - 关闭 decorFitsSystemWindows（旧版 Android 也可用，底层兼容）

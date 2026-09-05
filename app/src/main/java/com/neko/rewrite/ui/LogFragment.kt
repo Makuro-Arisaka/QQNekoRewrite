@@ -17,6 +17,9 @@ import java.util.*
 
 /**
  * 日志 Fragment — 查看/刷新/清空/导出日志
+ *
+ * 刷新时机：首次创建、[onResume]、以及被底部导航切换显示时（[onHiddenChanged]）。
+ * 底栏用的是 hide/show 而非 replace，切回来不会走 onResume，必须监听显隐。
  */
 class LogFragment : Fragment() {
 
@@ -25,9 +28,8 @@ class LogFragment : Fragment() {
     }
 
     private lateinit var textLog: TextView
+    private lateinit var textLogPath: TextView
     private lateinit var logScroll: ScrollView
-
-    private val logFile by lazy { File(requireActivity().filesDir, "neko_rewrite.log") }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,6 +43,7 @@ class LogFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         textLog = view.findViewById(R.id.text_log)
+        textLogPath = view.findViewById(R.id.text_log_path)
         logScroll = view.findViewById(R.id.log_scroll)
 
         view.findViewById<View>(R.id.btn_refresh_log).setOnClickListener { refreshLog() }
@@ -52,19 +55,28 @@ class LogFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        refreshLog()
+        if (view != null) refreshLog()
+    }
+
+    /** 底栏 hide/show 切换：从隐藏变为可见时刷新 */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (!hidden && view != null) refreshLog()
     }
 
     private fun refreshLog() {
         try {
-            val logContent = if (logFile.exists()) {
-                val lines = logFile.readLines()
-                val recent = if (lines.size > 200) lines.takeLast(200) else lines
-                recent.joinToString("\n")
+            val logContent = LogRecorder.readAll(200)
+            textLogPath.text = "日志文件：${LogRecorder.logPath}"
+            textLog.text = if (logContent.isBlank()) {
+                "暂无日志。\n\n" +
+                    "若模块已启用且 QQ 已重启仍无内容，请检查：\n" +
+                    "1. LSPosed 中模块作用域包含 QQ\n" +
+                    "2. 本 App 已授予「所有文件访问」权限（日志写在此处）\n" +
+                    "3. 上方路径是否为可写目录"
             } else {
-                "日志文件尚未创建。\n请在 LSPosed 中启用模块并重启 QQ 后查看。"
+                logContent
             }
-            textLog.text = logContent.ifEmpty { "暂无日志" }
             logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
         } catch (e: Exception) {
             textLog.text = "读取日志失败: ${e.message}"
@@ -95,7 +107,7 @@ class LogFragment : Fragment() {
                 LogRecorder.info("Settings", "日志已导出: ${exportFile.name}")
                 refreshLog()
             } else {
-                Toast.makeText(requireContext(), "❌ 导出失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "❌ 导出失败（无日志内容）", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "❌ 导出失败: ${e.message}", Toast.LENGTH_SHORT).show()

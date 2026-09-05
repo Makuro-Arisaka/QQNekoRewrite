@@ -54,6 +54,16 @@
             style="@style/Widget.Material3.Button.TextButton" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/text_log_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="8dp"
+        android:text="日志文件：—"
+        android:textSize="11sp"
+        android:fontFamily="monospace"
+        android:textColor="?attr/colorOnSurfaceVariant" />
+
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="0dp"

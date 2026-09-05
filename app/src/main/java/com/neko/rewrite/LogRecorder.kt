@@ -1,62 +1,183 @@
 package com.neko.rewrite
 
+import android.content.Context
+import android.os.Build
+import android.os.Environment
 import android.util.Log
-import java.io.*
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * 日志记录器 — 同时写入 Android Logcat + XposedBridge + 文件
+ * 日志记录器 — 同时写入 Android Logcat + 文件（+ 内存缓冲）
+ *
+ * ## 日志文件为什么以前永远是空的
+ *
+ * 模块运行在两个进程，而且分属不同的 /data/data 目录：
+ *
+ * | 进程 | 写模块私有目录 | 写 QQ 私有目录 |
+ * |------|---------------|---------------|
+ * | 模块 App (com.neko.rewrite) | ✅ | ❌ |
+ * | QQ (com.tencent.mobileqq)   | ❌ | ✅ |
+ *
+ * 旧实现在 QQ 进程里把日志目标设成「模块私有目录」，`appendText` 每次都因权限
+ * 失败，却被 `catch (_: Exception) {}` 吞掉，于是 `isReady=true` 而文件从未创建，
+ * 日志页只能一直显示「日志文件未创建」。
+ *
+ * ## 现在的做法
+ *
+ * 1. 按优先级挑一个**双方都能读写**的位置作为写入目标：
+ *    - 共享外部存储 `Documents/NekoRewrite/neko_rewrite.log`
+ *      （需要「所有文件访问」权限，MainActivity 启动时引导授予）
+ *    - 本进程私有目录（兜底，至少保留本进程日志）
+ * 2. 选定前**真实试写一次**（[isWritable]），不再「初始化成功但每条静默失败」。
+ * 3. 读取时（[readAll]）按 共享文件 → 模块私有 → QQ 私有 顺序合并，
+ *    即便共享目录不可用，也能把各进程私有文件里的日志拼出来。
  */
 object LogRecorder {
 
     private const val TAG = "NekoRewrite"
-    private const val LOG_FILE = "neko_rewrite.log"
+    const val LOG_FILE_NAME = "neko_rewrite.log"
+    private const val MOUNT_FILE_NAME = "qq_mounted"
     private const val MAX_BUFFER = 500
+    private const val MAX_FILE_BYTES = 512 * 1024L
+    private const val TRIM_KEEP_BYTES = 256 * 1024L
+
+    private const val MODULE_PACKAGE = "com.neko.rewrite"
+    private const val QQ_PACKAGE = "com.tencent.mobileqq"
+    private const val SHARED_DIR_NAME = "NekoRewrite"
 
     private val dateFormat = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault())
     private val logBuffer = LinkedList<String>()
 
-    @Volatile var isReady: Boolean = false
+    @Volatile
+    var isReady: Boolean = false
         private set
 
+    /** 当前进程实际写入的日志文件；null = 没有任何可写位置 */
     @Volatile
-    private var logFile: File? = null
+    private var writeTarget: File? = null
+
+    /** 跨进程共享的日志文件（两个进程指向同一个文件，优先读/写它） */
+    @Volatile
+    private var sharedFile: File? = null
+
+    /** 本进程读取日志时的候选文件（按优先级） */
+    private val readCandidates = ArrayList<File>()
+
+    /** 当前日志文件路径，供 UI 展示诊断 */
+    val logPath: String
+        get() = writeTarget?.absolutePath ?: "（无可用写入位置）"
+
+    // region 初始化
+
+    /** 从 QQ 进程初始化 */
+    fun initFromQqContext(qqContext: Context) {
+        setup(
+            candidates = buildList {
+                sharedExternalFile()?.let { add(it) }
+                add(File(qqContext.filesDir, LOG_FILE_NAME))            // QQ 私有目录：一定能写
+                packageFile(qqContext, MODULE_PACKAGE)?.let { add(it) } // 旧路径：能写就继续沿用
+            },
+            who = "QQ 进程"
+        )
+    }
+
+    /** 从模块自身进程初始化（设置页调用） */
+    fun init(context: Context) {
+        if (isReady && writeTarget != null) return
+        setup(moduleCandidates(context), who = "模块进程")
+    }
 
     /**
-     * 从 QQ 进程初始化（通过 createPackageContext 访问模块目录）
+     * 权限状态变化后重新挑选写入目标（例如用户刚授予「所有文件访问」）。
+     * 只有在共享目录变得可用、且当前还没用上它时才切换，避免每次 onResume 都刷日志。
      */
-    fun initFromQqContext(qqContext: android.content.Context) {
-        try {
-            // 尝试访问模块自身目录
-            val moduleContext = qqContext.createPackageContext(
-                "com.neko.rewrite",
-                android.content.Context.CONTEXT_IGNORE_SECURITY
-            )
-            logFile = File(moduleContext.filesDir, LOG_FILE)
-            isReady = true
-            log("LogRecorder", "日志系统就绪 (模块目录)", Level.INFO)
-        } catch (e: Exception) {
-            Log.w(TAG, "createPackageContext failed: ${e.message}, falling back to QQ dir")
-            try {
-                // 降级：写入 QQ 的 filesDir
-                logFile = File(qqContext.filesDir, LOG_FILE)
-                isReady = true
-                log("LogRecorder", "日志系统就绪 (QQ 目录降级)", Level.WARN)
-            } catch (e2: Exception) {
-                Log.e(TAG, "Cannot init log file: ${e2.message}")
-                isReady = false
-            }
+    fun reinit(context: Context) {
+        val shared = sharedExternalFile() ?: return
+        if (writeTarget?.absolutePath == shared.absolutePath) return
+        setup(moduleCandidates(context), who = "模块进程")
+    }
+
+    private fun moduleCandidates(context: Context): List<File> = buildList {
+        sharedExternalFile()?.let { add(it) }
+        add(File(context.filesDir, LOG_FILE_NAME))        // 模块私有目录
+        packageFile(context, QQ_PACKAGE)?.let { add(it) } // QQ 私有目录（若 QQ 已放开权限）
+    }
+
+    private fun setup(candidates: List<File>, who: String) {
+        readCandidates.clear()
+        readCandidates.addAll(candidates)
+        sharedFile = candidates.firstOrNull()
+
+        writeTarget = candidates.firstOrNull { isWritable(it) }
+        isReady = writeTarget != null
+
+        // 让另一个进程有机会读到本进程私有目录里的日志（best effort）
+        relaxPermissions(writeTarget)
+
+        log(
+            "LogRecorder",
+            "日志系统就绪（$who）: $logPath",
+            if (isReady) Level.INFO else Level.WARN
+        )
+    }
+
+    /**
+     * 共享外部存储上的日志文件 —— 两个进程都能写、都能读，是唯一能跨进程汇总的位置。
+     * Android 11+ 起公共目录不再允许 File 直写（除非持有「所有文件访问」），
+     * 未授权时返回 null，交给后续候选兜底。
+     */
+    private fun sharedExternalFile(): File? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            return null
+        }
+        return try {
+            val base = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            val dir = File(base, SHARED_DIR_NAME)
+            if (!dir.exists() && !dir.mkdirs()) return null
+            File(dir, LOG_FILE_NAME)
+        } catch (_: Exception) {
+            null
         }
     }
 
-    /**
-     * 从模块自身进程初始化（设置页面调用）
-     */
-    fun init(context: android.content.Context) {
-        logFile = File(context.filesDir, LOG_FILE)
-        isReady = true
+    /** 另一个包的私有目录下的同名日志文件（能否真正访问取决于对方是否放开权限） */
+    private fun packageFile(context: Context, pkg: String): File? = try {
+        val target = if (pkg == context.packageName) context
+        else context.createPackageContext(pkg, Context.CONTEXT_IGNORE_SECURITY)
+        File(target.filesDir, LOG_FILE_NAME)
+    } catch (_: Exception) {
+        null
     }
+
+    /** 真实试写：目录可进 + 文件可建 + 文件可写 */
+    private fun isWritable(file: File): Boolean {
+        return try {
+            val dir = file.parentFile ?: return false
+            if (!dir.exists() && !dir.mkdirs()) return false
+            if (!dir.canWrite()) return false
+            if (!file.exists() && !file.createNewFile()) return false
+            file.canWrite()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun relaxPermissions(file: File?) {
+        runCatching {
+            file?.parentFile?.let { dir ->
+                dir.setReadable(true, false)
+                dir.setExecutable(true, false)
+            }
+            file?.setReadable(true, false)
+        }
+    }
+
+    // endregion
+
+    // region 写入
 
     @Synchronized
     fun log(tag: String, message: String, level: Level = Level.INFO) {
@@ -71,9 +192,57 @@ object LogRecorder {
         while (logBuffer.size > MAX_BUFFER) logBuffer.removeFirst()
 
         // 文件写入
+        val file = writeTarget
+        if (file == null) {
+            Log.w(TAG, "[$tag] 日志无可用写入位置，仅输出到 Logcat: $message")
+            return
+        }
         try {
-            logFile?.appendText(line + "\n")
-        } catch (_: Exception) { }
+            trimIfNeeded(file)
+            FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { it.appendLine(line) }
+        } catch (e: Exception) {
+            Log.w(TAG, "写入日志文件失败 (${e.javaClass.simpleName}): ${e.message}")
+        }
+    }
+
+    /**
+     * QQ 进程调用：写入「模块已生效」心跳。
+     *
+     * 概览页的「是否已挂载」以前靠「日志文件是否存在」判断，但日志现在由模块进程
+     * 自己也会写，那个条件恒为真、失去意义。改用 QQ 侧写入的心跳文件判断，
+     * 共享目录不可用时模块读不到它，状态会如实显示「未检测到」而不是误报。
+     */
+    fun markMounted(context: Context, processName: String) {
+        runCatching {
+            val file = sharedFile?.let { File(it.parentFile, MOUNT_FILE_NAME) }
+                ?: File(context.filesDir, MOUNT_FILE_NAME)
+            file.writeText("ts=${System.currentTimeMillis()}\nproc=$processName\n")
+        }
+    }
+
+    /** 模块进程读取心跳；返回 (时间戳, 进程名)，读不到返回 null */
+    fun lastMounted(): Pair<Long, String>? {
+        val file = sharedFile?.let { File(it.parentFile, MOUNT_FILE_NAME) } ?: return null
+        return try {
+            if (!file.exists()) return null
+            val map = file.readLines()
+                .mapNotNull { line -> line.indexOf('=').takeIf { it > 0 }?.let { line.substring(0, it) to line.substring(it + 1) } }
+                .toMap()
+            val ts = map["ts"]?.toLongOrNull() ?: return null
+            ts to (map["proc"] ?: "?")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** 超过体积上限时裁掉前半部分，保留最近的 [TRIM_KEEP_BYTES] */
+    private fun trimIfNeeded(file: File) {
+        try {
+            if (file.length() < MAX_FILE_BYTES) return
+            val keep = file.readText().takeLast(TRIM_KEEP_BYTES.toInt())
+            file.writeText(keep.substring(keep.indexOf('\n') + 1))
+        } catch (_: Exception) {
+        }
     }
 
     fun info(tag: String, msg: String) = log(tag, msg, Level.INFO)
@@ -85,22 +254,71 @@ object LogRecorder {
     fun ai(tag: String, msg: String) = log(tag, msg, Level.AI)
     fun msg(tag: String, msg: String) = log(tag, msg, Level.MSG)
 
+    // endregion
+
+    // region 读取 / 维护
+
     @Synchronized
     fun getRecentLogs(count: Int = 200): List<String> = logBuffer.takeLast(count)
 
-    fun readLogFile(): String = try {
-        logFile?.readText() ?: "日志文件未初始化"
-    } catch (e: Exception) { "读取失败: ${e.message}" }
+    /**
+     * 读取可拿到的全部日志：
+     * - 共享文件非空 ⇒ 它是唯一写入目标，直接返回（避免与其它来源重复）
+     * - 否则合并各进程私有文件里的日志
+     */
+    @Synchronized
+    fun readAll(maxLines: Int = 200): String {
+        val shared = sharedFile
+        if (shared != null) {
+            val text = readTextOrEmpty(shared)
+            if (text.isNotBlank()) return tail(text, maxLines)
+        }
 
-    fun exportTo(dest: File): Boolean = try {
-        logFile?.copyTo(dest, overwrite = true); true
-    } catch (e: Exception) { false }
+        val chunks = readCandidates.map { readTextOrEmpty(it) }.filter { it.isNotBlank() }
+        if (chunks.isEmpty()) return ""
+        return tail(chunks.joinToString("\n"), maxLines)
+    }
+
+    @Suppress("unused")
+    fun readLogFile(): String = readAll()
+
+    private fun readTextOrEmpty(file: File): String = try {
+        if (file.exists() && file.length() > 0) file.readText().trimEnd() else ""
+    } catch (_: Exception) {
+        ""
+    }
+
+    private fun tail(text: String, maxLines: Int): String {
+        val lines = text.split("\n")
+        return if (lines.size > maxLines) lines.takeLast(maxLines).joinToString("\n") else text
+    }
+
+    /** 导出：优先拷贝共享/私有日志文件，都没有时退化为内存缓冲 */
+    fun exportTo(dest: File): Boolean {
+        val source = (listOfNotNull(sharedFile) + readCandidates)
+            .firstOrNull { it.exists() && it.length() > 0 }
+        return try {
+            if (source != null) {
+                source.copyTo(dest, overwrite = true)
+            } else {
+                if (logBuffer.isEmpty()) return false
+                dest.writeText(logBuffer.joinToString("\n"))
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     @Synchronized
     fun clear() {
         logBuffer.clear()
-        try { logFile?.writeText("") } catch (_: Exception) { }
+        for (file in (listOfNotNull(sharedFile) + readCandidates)) {
+            runCatching { if (file.exists()) file.writeText("") }
+        }
     }
+
+    // endregion
 
     enum class Level(val emoji: String, val priority: Int) {
         INFO("ℹ️", Log.INFO),

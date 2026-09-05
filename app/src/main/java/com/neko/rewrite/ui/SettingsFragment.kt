@@ -114,6 +114,15 @@ class SettingsFragment : Fragment() {
         saveConfig()
     }
 
+    /**
+     * 底栏用 hide/show 切换 Fragment，切走时不会触发 [onPause]。
+     * 这里补一次保存，保证「改完开关立刻切到概览页」时配置已经落盘并广播给 QQ。
+     */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (hidden) saveConfig(auto = true)
+    }
+
     private fun setupProviderSpinner() {
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, providers.map { it.name })
         spinnerProvider.setAdapter(adapter)
@@ -198,6 +207,14 @@ class SettingsFragment : Fragment() {
         sliderTemperature.addOnChangeListener { _, value, _ ->
             textTemperature.text = String.format("%.1f", value)
         }
+
+        // 开关类控件：改动即刻落盘 + 广播，切到概览页/通知栏开关都能马上生效
+        switchEnabled.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
+        switchShowToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
+        switchStartupToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
+        switchQuickToggle.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
+        switchAsyncRewrite.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
+        toggleFilterMode.addOnButtonCheckedListener { _, _, _ -> saveConfig(auto = true) }
 
         btnResetPrompt.setOnClickListener {
             editPrompt.setText(PromptManager.DEFAULT_PROMPT)
@@ -306,7 +323,12 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun saveConfig() {
+    /**
+     * @param auto true = 开关变化/切页触发的自动保存：不做填写完整性校验
+     *             （否则「没填 Key 时关掉模块」会保存失败，状态丢失），
+     *             仅在确实缺关键配置时给一行轻提示。
+     */
+    private fun saveConfig(auto: Boolean = false) {
         try {
             val temperature = sliderTemperature.value
             val maxTokens = editMaxTokens.text.toString().toIntOrNull() ?: 500
@@ -316,13 +338,15 @@ class SettingsFragment : Fragment() {
             val apiKey = editApiKey.text.toString().trim()
             val prompt = editPrompt.text.toString().trim()
 
-            if (apiKey.isEmpty()) {
-                showStatus("请填写 API Key", true)
-                return
-            }
-            if (endpoint.isEmpty()) {
-                showStatus("请填写 API 端点", true)
-                return
+            if (!auto) {
+                if (apiKey.isEmpty()) {
+                    showStatus("请填写 API Key", true)
+                    return
+                }
+                if (endpoint.isEmpty()) {
+                    showStatus("请填写 API 端点", true)
+                    return
+                }
             }
 
             val filterMode = getFilterMode()
@@ -375,13 +399,19 @@ class SettingsFragment : Fragment() {
             }
             requireActivity().sendBroadcast(intent)
 
-            showStatus("配置已保存。QQ 运行中即时生效，否则下次启动自动加载", false)
+            showStatus(
+                if (apiKey.isEmpty()) "配置已保存，但 API Key 未填写 —— 改写不会生效"
+                else "配置已保存。QQ 运行中即时生效，否则下次启动自动加载",
+                isError = apiKey.isEmpty()
+            )
         } catch (e: Exception) {
             showStatus("保存失败: ${e.message}", true)
         }
     }
 
     private fun showStatus(message: String, isError: Boolean) {
+        // 自动保存可能发生在视图销毁后（切页/退后台），此时没有可写的状态栏
+        if (!::textStatus.isInitialized || view == null) return
         textStatus.text = message
         textStatus.setTextColor(
             if (isError) resources.getColor(R.color.status_error, null)

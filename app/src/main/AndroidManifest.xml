@@ -12,6 +12,10 @@
     <!-- 网络权限（API 连通性测试） -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 通知权限（Android 13+ 发布通知必需；常驻开关在 QQ 进程中以 QQ 身份发出，
+         若将来改为在模块进程内发通知，也必须先持有该权限） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Xposed 模块声明 -->
     <application
         android:allowBackup="false"
