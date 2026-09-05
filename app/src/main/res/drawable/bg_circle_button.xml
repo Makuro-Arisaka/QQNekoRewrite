@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 圆形返回按钮：淡色圆形底 + 按压涟漪，配色跟随 Material You 主题 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="?attr/colorSurfaceContainerHighest" />
+        </shape>
+    </item>
+</ripple>

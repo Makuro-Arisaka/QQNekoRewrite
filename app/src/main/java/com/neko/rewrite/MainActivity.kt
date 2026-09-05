@@ -48,6 +48,14 @@ class MainActivity : AppCompatActivity() {
         bottomNav = findViewById(R.id.bottom_navigation)
         applySystemBarInsets()
 
+        // 二级页（关于等，replace + addToBackStack 进入）不显示底栏：
+        // 返回栈非空 → 隐藏；全部退出 → 恢复
+        supportFragmentManager.addOnBackStackChangedListener {
+            bottomNav.visibility =
+                if (supportFragmentManager.backStackEntryCount > 0) android.view.View.GONE
+                else android.view.View.VISIBLE
+        }
+
         // 添加所有 fragment（隐藏除概览外的所有）
         supportFragmentManager.beginTransaction().apply {
             add(R.id.fragment_container, settingsFragment, SettingsFragment.TAG).hide(settingsFragment)
@@ -98,10 +106,12 @@ class MainActivity : AppCompatActivity() {
     private fun applySystemBarInsets() {
         val fragmentContainer = findViewById<android.view.View>(R.id.fragment_container)
 
-        // 顶部 inset → fragment 容器 paddingTop
+        // 顶部 inset → fragment 容器 paddingTop；底部 inset 也落到容器——
+        // 主页面容器在底栏上方（底栏同色，多出的 padding 不可见），
+        // 二级页隐藏底栏后正文不会被手势小白条遮挡
         ViewCompat.setOnApplyWindowInsetsListener(fragmentContainer) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, bars.top, 0, 0)
+            v.setPadding(0, bars.top, 0, bars.bottom)
             insets
         }
         ViewCompat.requestApplyInsets(fragmentContainer)

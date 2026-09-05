@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 返回退场：二级页向右滑出（模拟系统 Activity 返回） -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromXDelta="0"
+    android:toXDelta="100%p"
+    android:duration="260"
+    android:interpolator="@android:anim/decelerate_interpolator" />

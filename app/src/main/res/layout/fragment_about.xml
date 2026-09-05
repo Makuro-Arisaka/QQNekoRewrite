@@ -12,25 +12,28 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <com.google.android.material.button.MaterialButton
+        <ImageView
             android:id="@+id/btn_about_back"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="← 返回"
-            android:textSize="12sp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            style="@style/Widget.Material3.Button.TextButton" />
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="-8dp"
+            android:background="@drawable/bg_circle_button"
+            android:src="@drawable/ic_arrow_back"
+            android:padding="16dp"
+            android:contentDescription="返回"
+            app:tint="?attr/colorOnSurface"
+            android:tooltipText="返回" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="关于"
-            android:textSize="22sp"
+            android:textSize="34sp"
             android:textStyle="bold"
-            android:textColor="?attr/colorPrimary"
-            android:paddingTop="8dp"
-            android:paddingBottom="16dp" />
+            android:textColor="?attr/colorOnSurface"
+            android:paddingTop="20dp"
+            android:paddingBottom="20dp" />
 
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Material3.CardView.Filled"

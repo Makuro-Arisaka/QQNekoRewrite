@@ -103,14 +103,6 @@ object ProviderPresets {
             requiresApiKey = true,
             description = "国产模型聚合平台，免费额度，需在 siliconflow.cn 获取 API Key"
         ),
-        Provider(
-            name = "DeepSeek (官方)",
-            apiEndpoint = "https://api.deepseek.com/v1/chat/completions",
-            defaultModel = "deepseek-chat",
-            models = listOf("deepseek-chat", "deepseek-reasoner"),
-            requiresApiKey = true,
-            description = "DeepSeek 官方 API"
-        ),
     )
 
     /** 根据名称查找提供方 */

@@ -69,6 +69,10 @@ class OverviewFragment : Fragment() {
 
         view.findViewById<View>(R.id.btn_about).setOnClickListener {
             parentFragmentManager.beginTransaction()
+                .setCustomAnimations(
+                    R.anim.slide_in_right, R.anim.slide_out_left,
+                    R.anim.slide_in_left, R.anim.slide_out_right
+                )
                 .replace(R.id.fragment_container, AboutFragment())
                 .addToBackStack(null)
                 .commit()
