@@ -27,6 +27,7 @@
 | 框架 | LSPosed（Zygisk） |
 | 系统 | Android 8.0+（API 26；Android 12+ 可体验动态取色） |
 | 其他 | 任一 OpenAI 兼容 Chat API 的 Key |
+*不建议在QQ-9.1.35以上的版本使用QQ NekoRewrite。QQ在9.1.35以上的版本加强了相关检测,有封号风险。
 
 ## 安装
 
