@@ -33,9 +33,6 @@ object ConfigBroadcast {
             putExtra(MainHook.EXTRA_SHOW_STARTUP_TOAST, config.showStartupToast)
             putExtra(MainHook.EXTRA_ASYNC_REWRITE, config.asyncRewrite)
             putExtra(MainHook.EXTRA_REWRITE_TIMEOUT, config.rewriteTimeoutMs)
-            putExtra(MainHook.EXTRA_FILTER_MODE, config.filterMode)
-            putStringArrayListExtra(MainHook.EXTRA_WHITELIST, ArrayList(config.whitelist))
-            putStringArrayListExtra(MainHook.EXTRA_BLACKLIST, ArrayList(config.blacklist))
             putExtra(MainHook.EXTRA_LAST_UPDATED, timestamp)
         }
         context.sendBroadcast(intent)

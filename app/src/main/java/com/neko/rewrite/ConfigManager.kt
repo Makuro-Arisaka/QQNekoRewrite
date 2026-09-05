@@ -160,9 +160,6 @@ object ConfigManager {
                     showStartupToast = prefs.getBoolean("show_startup_toast", false),
                     asyncRewrite = prefs.getBoolean("async_rewrite", true),
                     rewriteTimeoutMs = prefs.getInt("rewrite_timeout_ms", 8000),
-                    filterMode = prefs.getInt("filter_mode", 0),
-                    whitelist = prefs.getStringSet("whitelist", emptySet())?.toSet() ?: emptySet(),
-                    blacklist = prefs.getStringSet("blacklist", emptySet())?.toSet() ?: emptySet(),
                     systemPrompt = prefs.getString("system_prompt", PromptManager.DEFAULT_PROMPT)
                         ?: PromptManager.DEFAULT_PROMPT,
                     lastUpdated = updated
@@ -266,9 +263,6 @@ object ConfigManager {
             .putBoolean("show_startup_toast", newConfig.showStartupToast)
             .putBoolean("async_rewrite", newConfig.asyncRewrite)
             .putInt("rewrite_timeout_ms", newConfig.rewriteTimeoutMs)
-            .putInt("filter_mode", newConfig.filterMode)
-            .putStringSet("whitelist", newConfig.whitelist)
-            .putStringSet("blacklist", newConfig.blacklist)
             .putString("system_prompt", newConfig.systemPrompt)
             .putLong(KEY_LAST_UPDATED, newConfig.lastUpdated)
     }

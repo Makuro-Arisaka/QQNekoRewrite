@@ -1,9 +1,6 @@
 package com.neko.rewrite.ui
 
-import androidx.appcompat.app.AlertDialog
 import android.content.Intent
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.textfield.TextInputEditText
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -13,7 +10,6 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -55,16 +51,6 @@ class SettingsFragment : Fragment() {
     private lateinit var btnResetPrompt: MaterialButton
     private lateinit var btnSave: MaterialButton
     private lateinit var textStatus: TextView
-
-    // 联系人过滤
-    private lateinit var toggleFilterMode: MaterialButtonToggleGroup
-    private lateinit var containerWhitelist: LinearLayout
-    private lateinit var containerBlacklist: LinearLayout
-    private lateinit var btnAddWhitelist: MaterialButton
-    private lateinit var btnAddBlacklist: MaterialButton
-
-    private var whitelist = mutableSetOf<String>()
-    private var blacklist = mutableSetOf<String>()
 
     private val providers = ProviderPresets.ALL_PROVIDERS
     private var currentProvider: ProviderPresets.Provider = providers[1] // DeepSeek 默认
@@ -112,12 +98,6 @@ class SettingsFragment : Fragment() {
         btnResetPrompt = view.findViewById(R.id.btn_reset_prompt)
         btnSave = view.findViewById(R.id.btn_save)
         textStatus = view.findViewById(R.id.text_status)
-
-        toggleFilterMode = view.findViewById(R.id.toggle_filter_mode)
-        containerWhitelist = view.findViewById(R.id.container_whitelist)
-        containerBlacklist = view.findViewById(R.id.container_blacklist)
-        btnAddWhitelist = view.findViewById(R.id.btn_add_whitelist)
-        btnAddBlacklist = view.findViewById(R.id.btn_add_blacklist)
 
         setupProviderSpinner()
         loadConfig()
@@ -238,16 +218,6 @@ class SettingsFragment : Fragment() {
         editMaxTokens.setText(prefs.getInt("max_tokens", 500).toString())
         editPrompt.setText(prefs.getString("system_prompt", PromptManager.DEFAULT_PROMPT) ?: PromptManager.DEFAULT_PROMPT)
 
-        // 联系人过滤
-        val mode = prefs.getInt("filter_mode", 0)
-        when (mode) {
-            1 -> toggleFilterMode.check(R.id.btn_filter_white)
-            2 -> toggleFilterMode.check(R.id.btn_filter_black)
-            else -> toggleFilterMode.check(R.id.btn_filter_off)
-        }
-        whitelist = (prefs.getStringSet("whitelist", emptySet()) ?: emptySet()).toMutableSet()
-        blacklist = (prefs.getStringSet("blacklist", emptySet()) ?: emptySet()).toMutableSet()
-        renderLists()
     }
 
     /** 根据提供方是否有预设模型列表，决定显示模型下拉或自由输入 */
@@ -275,7 +245,6 @@ class SettingsFragment : Fragment() {
         switchShowToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         switchStartupToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         switchAsyncRewrite.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
-        toggleFilterMode.addOnButtonCheckedListener { _, _, _ -> saveConfig(auto = true) }
 
         btnResetPrompt.setOnClickListener {
             editPrompt.setText(PromptManager.DEFAULT_PROMPT)
@@ -283,167 +252,8 @@ class SettingsFragment : Fragment() {
         }
 
         btnSave.setOnClickListener { saveConfig() }
-        btnAddWhitelist.setOnClickListener { showAddUidDialog(true) }
-        btnAddBlacklist.setOnClickListener { showAddUidDialog(false) }
         btnCheckConnection.setOnClickListener { checkConnection() }
         btnFetchModels.setOnClickListener { fetchModels() }
-    }
-
-    // ===== 名单管理 =====
-
-    private fun renderLists() {
-        renderList(containerWhitelist, whitelist, true)
-        renderList(containerBlacklist, blacklist, false)
-    }
-
-    private fun renderList(container: LinearLayout, list: MutableSet<String>, isWhite: Boolean) {
-        container.removeAllViews()
-        if (list.isEmpty()) {
-            val emptyText = TextView(requireContext()).apply {
-                text = "（空）"
-                textSize = 13f
-                setTextColor(themeAttrColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
-                setPadding(8, 4, 8, 4)
-            }
-            container.addView(emptyText)
-            return
-        }
-        for (uid in list) {
-            container.addView(createListRow(uid, isWhite))
-        }
-    }
-
-    private fun createListRow(uid: String, isWhite: Boolean): View {
-        val row = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(8, 4, 8, 4)
-        }
-
-        val label = TextView(requireContext()).apply {
-            text = uid
-            textSize = 14f
-            setTextColor(themeAttrColor(com.google.android.material.R.attr.colorOnSurface))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        val deleteBtn = com.google.android.material.button.MaterialButton(
-            requireContext(), null, androidx.appcompat.R.attr.borderlessButtonStyle
-        ).apply {
-            text = "✕"
-            textSize = 12f
-            insetTop = 0
-            insetBottom = 0
-            minHeight = 0
-            setTextColor(resources.getColor(R.color.status_error, null))
-        }
-        deleteBtn.setOnClickListener {
-            if (isWhite) whitelist.remove(uid) else blacklist.remove(uid)
-            renderLists()
-        }
-
-        row.addView(label)
-        row.addView(deleteBtn)
-        return row
-    }
-
-    /**
-     * MD3 添加白/黑名单弹窗：
-     * 上方「个人QQ | QQ群」分段选择（MaterialButtonToggleGroup），下方号码输入框
-     * （填充文本框，标签随类型联动），底部取消 + 确认。
-     * 黑名单确认按钮用错误色；号码为空或含非数字字符时确认置灰。
-     */
-    private fun showAddUidDialog(isWhite: Boolean) {
-        val ctx = requireContext()
-        fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-        val btnQq = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            id = View.generateViewId()
-            text = "个人QQ"
-        }
-        val btnGroup = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            id = View.generateViewId()
-            text = "QQ群"
-        }
-        val toggle = MaterialButtonToggleGroup(ctx).apply {
-            isSingleSelection = true
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
-        toggle.addView(btnQq, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        toggle.addView(btnGroup, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        toggle.check(btnQq.id)
-
-        val input = TextInputEditText(ctx).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-        }
-        val inputLayout = TextInputLayout(
-            ctx, null,
-            com.google.android.material.R.attr.textInputOutlinedStyle
-        ).apply {
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            hint = "QQ号"
-            placeholderText = "请输入QQ号"
-            helperText = "支持个人QQ或QQ群号码"
-            addView(input)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(16) }
-        }
-
-        val content = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(8), dp(24), 0)
-            addView(toggle)
-            addView(inputLayout)
-        }
-
-        val dialog = MaterialAlertDialogBuilder(ctx)
-            .setTitle(if (isWhite) "添加白名单" else "添加黑名单")
-            .setView(content)
-            .setPositiveButton(if (isWhite) "添加" else "加入黑名单", null)
-            .setNegativeButton("取消", null)
-            .show()
-
-        val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        if (!isWhite) {
-            positive?.setTextColor(resources.getColor(R.color.md_theme_error, null))
-        }
-
-        fun validate(): Boolean {
-            val num = input.text?.toString()?.trim().orEmpty()
-            val ok = num.isNotEmpty() && num.all { it.isDigit() }
-            positive?.isEnabled = ok
-            inputLayout.error = if (ok || num.isEmpty()) null else "号码只能包含数字"
-            return ok
-        }
-
-        // 注册即回调一次当前选中态（切换类型联动标签 + 重校验）
-        toggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (!isChecked) return@addOnButtonCheckedListener
-            if (checkedId == btnQq.id) {
-                inputLayout.hint = "QQ号"; inputLayout.placeholderText = "请输入QQ号"
-            } else {
-                inputLayout.hint = "群号"; inputLayout.placeholderText = "请输入群号"
-            }
-            validate()
-        }
-
-        input.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) { validate() }
-        })
-
-        positive?.isEnabled = false
-        positive?.setOnClickListener {
-            if (!validate()) return@setOnClickListener
-            val num = input.text.toString().trim()
-            if (isWhite) whitelist.add(num) else blacklist.add(num)
-            renderLists()
-            dialog.dismiss()
-        }
     }
 
     // ===== 保存 =====
@@ -453,14 +263,6 @@ class SettingsFragment : Fragment() {
             spinnerModel.text.toString().ifEmpty { currentProvider.defaultModel }
         } else {
             editCustomModel.text.toString().trim()
-        }
-    }
-
-    private fun getFilterMode(): Int {
-        return when (toggleFilterMode.checkedButtonId) {
-            R.id.btn_filter_white -> 1
-            R.id.btn_filter_black -> 2
-            else -> 0
         }
     }
 
@@ -490,7 +292,6 @@ class SettingsFragment : Fragment() {
                 }
             }
 
-            val filterMode = getFilterMode()
             // 超时限制在 1~60 秒，避免填 0（永不超时）把发送线程拖死
             val rewriteTimeout = editRewriteTimeout.text.toString()
                 .toIntOrNull()?.coerceIn(1_000, 60_000) ?: 8_000
@@ -507,9 +308,6 @@ class SettingsFragment : Fragment() {
                 showStartupToast = switchStartupToast.isChecked,
                 asyncRewrite = switchAsyncRewrite.isChecked,
                 rewriteTimeoutMs = rewriteTimeout,
-                filterMode = filterMode,
-                whitelist = whitelist.toSet(),
-                blacklist = blacklist.toSet(),
                 systemPrompt = prompt
             )
 

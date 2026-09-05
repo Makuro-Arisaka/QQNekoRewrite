@@ -26,9 +26,6 @@ data class ModuleConfig(
     val asyncRewrite: Boolean = true,
     /** 单次 AI 改写的总超时（毫秒），超时即降级为原文 */
     val rewriteTimeoutMs: Int = 8000,
-    val filterMode: Int = 0,                // 联系人过滤: 0=不限制, 1=仅白名单, 2=排除黑名单
-    val whitelist: Set<String> = emptySet(),
-    val blacklist: Set<String> = emptySet(),
     val systemPrompt: String = "", // 默认值在 ConfigManager 中设置
     /**
      * 配置写入时间戳（毫秒）。

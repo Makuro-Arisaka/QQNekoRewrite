@@ -149,8 +149,8 @@ object MessageInterceptor {
             val target = findFirstTextElement(param.args) ?: return
 
             // 转义前缀「//」：跳过 AI 改写，去掉前缀后原样发送。
-            // 刻意放在 API Key 检查与联系人过滤【之前】：「//」是用户给模块的指令，
-            // 无论对方是否在白/黑名单、Key 是否配置，都不该泄漏到实际发出的消息里。
+            // 刻意放在 API Key 检查【之前】：「//」是用户给模块的指令，
+            // 无论 Key 是否配置，都不该泄漏到实际发出的消息里。
             if (handleSkipPrefix(target)) return
 
             // API Key 为空时跳过（避免每条消息都触发 AI 调用）
@@ -158,23 +158,10 @@ object MessageInterceptor {
                 return
             }
 
-            // 提取联系人信息（用于白名单/黑名单过滤）
-            val contact = ContactFilter.extractContact(param.args)
-
-            // 过滤判定：命中白名单/黑名单规则则跳过改写
-            if (contact.isValid && ContactFilter.shouldSkip(contact)) {
-                XposedBridge.log("[NekoRewrite] 🚫 联系人已过滤 (${contact.typeLabel}): uid=${contact.peerUid ?: "?"} uin=${contact.peerUin ?: "?"}")
-                return
-            }
-
-            // 记录联系人信息（仅记录有效联系人，供设置页参考）
-            if (contact.isValid) {
-                ContactFilter.logContact(contact)
-            }
-            logIntercept(target.original, hookName, contact)
+            logIntercept(target.original, hookName)
 
             if (canTakeOverAsync(param)) {
-                takeOverAsync(param, target, hookName, contact)
+                takeOverAsync(param, target, hookName)
             } else {
                 rewriteInPlace(target)
             }
@@ -209,8 +196,7 @@ object MessageInterceptor {
     private fun takeOverAsync(
         param: XC_MethodHook.MethodHookParam,
         target: TextTarget,
-        hookName: String,
-        contact: ContactFilter.ContactInfo
+        hookName: String
     ) {
         // 阻断原方法：setResult(null) 会同时置 returnEarly=true（见 Xposed API MethodHookParam），
         // 原方法被跳过、发送线程立即返回，消息由下方异步任务稍后重放。
@@ -227,7 +213,7 @@ object MessageInterceptor {
                 rewriteAndApply(target, "异步")
             } finally {
                 // 无论改写成败，都必须把消息发出去
-                replayOriginal(method, receiver, args, hookName, contact)
+                replayOriginal(method, receiver, args, hookName)
             }
         }
 
@@ -250,13 +236,12 @@ object MessageInterceptor {
         method: Member,
         receiver: Any?,
         args: Array<Any?>,
-        hookName: String,
-        contact: ContactFilter.ContactInfo
+        hookName: String
     ) {
         try {
             XposedBridge.invokeOriginalMethod(method, receiver, args)
             XposedBridge.log("[NekoRewrite] 📤 已重放发送 [$hookName]")
-            LogRecorder.msg("Hook", "已重放发送${if (contact.isValid) " peer=${contact.peerUid}" else ""}")
+            LogRecorder.msg("Hook", "已重放发送")
         } catch (t: Throwable) {
             XposedBridge.log("[NekoRewrite] ❌ 重放发送失败 [$hookName]: ${t.javaClass.simpleName}: ${t.message}")
             LogRecorder.error("Hook", "重放发送失败: ${t.message}")
@@ -382,10 +367,9 @@ object MessageInterceptor {
         return null
     }
 
-    private fun logIntercept(original: String, hookName: String, contact: ContactFilter.ContactInfo) {
-        val peerInfo = if (contact.isValid) " (${contact.typeLabel}:${contact.peerUid})" else ""
-        XposedBridge.log("[NekoRewrite] 💬 拦截消息 [$hookName]$peerInfo: ${original.take(50)}")
-        LogRecorder.msg("Hook", "拦截${if (contact.isValid) " peer=${contact.peerUid}" else ""}: ${original.take(50)}")
+    private fun logIntercept(original: String, hookName: String) {
+        XposedBridge.log("[NekoRewrite] 💬 拦截消息 [$hookName]: ${original.take(50)}")
+        LogRecorder.msg("Hook", "拦截: ${original.take(50)}")
     }
 
     /**

@@ -31,9 +31,6 @@ class MainHook : IXposedHookLoadPackage {
         const val EXTRA_SHOW_STARTUP_TOAST = "show_startup_toast"
         const val EXTRA_ASYNC_REWRITE = "async_rewrite"
         const val EXTRA_REWRITE_TIMEOUT = "rewrite_timeout_ms"
-        const val EXTRA_FILTER_MODE = "filter_mode"
-        const val EXTRA_WHITELIST = "whitelist"
-        const val EXTRA_BLACKLIST = "blacklist"
         const val EXTRA_LAST_UPDATED = "last_updated"
     }
 
@@ -47,8 +44,6 @@ class MainHook : IXposedHookLoadPackage {
 
             hookApplication(lpparam)
             MessageInterceptor.install(lpparam.classLoader)
-            // 收信侧 Hook：从 MsgRecord 持续建立 peerUid ↔ QQ号 持久映射
-            UidMap.install(lpparam.classLoader)
 
             XposedBridge.log("[NekoRewrite] ✅ 所有 Hook 安装流程完成")
         } catch (e: Throwable) {
@@ -72,8 +67,6 @@ class MainHook : IXposedHookLoadPackage {
                             ConfigManager.init(context)
                             XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
 
-                            // 映射表落盘在 QQ 自身 files 目录（本进程有完全读写权）
-                            UidMap.init(context)
 
                             // 日志诊断走 Logcat；挂载心跳供概览页判断「模块是否真的在 QQ 里生效」
                             LogRecorder.initFromQqContext(context)
@@ -153,11 +146,6 @@ class MainHook : IXposedHookLoadPackage {
                         showStartupToast = intent.getBooleanExtra(EXTRA_SHOW_STARTUP_TOAST, prefs.getBoolean("show_startup_toast", false)),
                         asyncRewrite = intent.getBooleanExtra(EXTRA_ASYNC_REWRITE, prefs.getBoolean("async_rewrite", true)),
                         rewriteTimeoutMs = intent.getIntExtra(EXTRA_REWRITE_TIMEOUT, prefs.getInt("rewrite_timeout_ms", 8000)),
-                        filterMode = intent.getIntExtra(EXTRA_FILTER_MODE, prefs.getInt("filter_mode", 0)),
-                        whitelist = intent.getStringArrayListExtra(EXTRA_WHITELIST)?.toSet()
-                            ?: prefs.getStringSet("whitelist", emptySet()) ?: emptySet(),
-                        blacklist = intent.getStringArrayListExtra(EXTRA_BLACKLIST)?.toSet()
-                            ?: prefs.getStringSet("blacklist", emptySet()) ?: emptySet(),
                         systemPrompt = intent.getStringExtra(EXTRA_PROMPT) ?: PromptManager.DEFAULT_PROMPT,
                         // 时间戳沿用模块侧写入值，保证多来源仲裁时两侧一致
                         lastUpdated = intent.getLongExtra(EXTRA_LAST_UPDATED, System.currentTimeMillis())
