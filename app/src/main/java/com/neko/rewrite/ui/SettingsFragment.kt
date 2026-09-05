@@ -377,11 +377,11 @@ class SettingsFragment : Fragment() {
 
         val input = TextInputEditText(ctx).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            hint = "请输入QQ号"
         }
         val inputLayout = TextInputLayout(ctx).apply {
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_FILLED
             hint = "QQ号"
+            placeholderText = "请输入QQ号"
             helperText = "支持个人QQ或QQ群号码"
             addView(input)
             layoutParams = LinearLayout.LayoutParams(
@@ -420,9 +420,9 @@ class SettingsFragment : Fragment() {
         toggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
             if (checkedId == btnQq.id) {
-                inputLayout.hint = "QQ号"; input.hint = "请输入QQ号"
+                inputLayout.hint = "QQ号"; inputLayout.placeholderText = "请输入QQ号"
             } else {
-                inputLayout.hint = "群号"; input.hint = "请输入群号"
+                inputLayout.hint = "群号"; inputLayout.placeholderText = "请输入群号"
             }
             validate()
         }

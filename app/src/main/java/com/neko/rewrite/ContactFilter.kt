@@ -12,8 +12,11 @@ import de.robv.android.xposed.XposedHelpers
  *    - peerUid：私聊为 u_xxx 内部会话 ID，群聊通常就是群号字符串
  *    - peerUin：用户可读的 QQ 号 / 群号
  *    设置页白/黑名单存的是 QQ 号/群号，因此过滤时两者任一命中即视为匹配。
- *    peerUin 在不同 QQ 版本上字段名/所在对象不固定，采用反射枚举字段树 +
- *    跨参数扫描兜底（详见 [scanUinFields]）。
+ *
+ *    ⚠️ QQ 9.1.35 的 kernelpublic.nativeinterface.Contact 实测只有
+ *    [guildId, peerUid] 两个 String 字段（诊断日志实锤），peerUin 若存在
+ *    只可能是数值型；因此扫描逻辑：支持数值 uin、有界嵌套、集合元素，
+ *    仍失败则打印全字段名:类型诊断（每进程一次）。
  * 3. 根据配置的 filterMode 判定当前消息是否应被改写
  */
 object ContactFilter {
@@ -49,15 +52,14 @@ object ContactFilter {
     /**
      * 从 Hook 参数列表中提取 Contact 信息。
      * 遍历所有参数，反射查找包含 peerUid 字段的对象；
-     * 若该对象上取不到 uin，再跨其余参数扫描（MsgRecord 等对象常带 peerUin）。
+     * 若该对象上取不到 uin，再跨其余参数扫描（含集合元素与嵌套对象）。
      */
     fun extractContact(args: Array<Any>): ContactInfo {
         for (arg in args) {
             val info = try { tryExtract(arg) } catch (_: Throwable) { null } ?: continue
             if (info.isValid) {
                 val merged = if (info.peerUin.isNullOrBlank()) {
-                    val uin = scanArgsForUin(args, skip = arg)
-                    info.copy(peerUin = uin)
+                    info.copy(peerUin = scanArgsForUin(args, skip = arg))
                 } else {
                     info
                 }
@@ -81,7 +83,7 @@ object ContactFilter {
             }
             if (peerUid.isNullOrBlank()) return null
 
-            // 「QQ号 ↔ peerUid」映射的另一半：uin（QQ号/群号），字段名随版本不定，用枚举扫描
+            // 「QQ号 ↔ peerUid」映射的另一半：uin（QQ号/群号），字段名/类型随版本不定
             val peerUin = scanUinFields(obj)
 
             // 提取 chatType（可选）
@@ -95,63 +97,121 @@ object ContactFilter {
     }
 
     /**
-     * 在对象自身的字段树（含父类）里找 uin 类 String 字段。
-     * 命中名单：peerUin / uin / 以 "Uin" 结尾的字段；
-     * 显式排除 senderUin / selfUin（发送者是本人，不能当联系人 QQ 号）。
+     * 在对象字段树里找 uin。
+     * - depth=0（参数/联系人对象本身）：接受 peerUin / uin / *Uin（排除 senderUin/selfUin），
+     *   值可为 String 或数值（QQ 号可超 int 上限，按 Number.toString）
+     * - depth>0（嵌套对象，仅 com.tencent 类）：只接受无歧义的 peerUin，
+     *   防止把运行时对象里的「本人 uin」误当联系人号
+     * - 嵌套最深 2 层、总扫描对象数 ≤ 48，避免性能问题
      */
-    private fun scanUinFields(obj: Any): String? {
+    private fun scanUinFields(obj: Any, depth: Int = 0, budget: IntArray = intArrayOf(48)): String? {
+        if (depth > 2 || budget[0] <= 0) return null
+        budget[0]--
         var c: Class<*>? = obj.javaClass
-        var depth = 0
-        while (c != null && c != Any::class.java && depth < 4) {
+        var d = 0
+        while (c != null && c != Any::class.java && d < 4) {
             for (f in c.declaredFields) {
                 try {
                     val n = f.name
                     if (n == "senderUin" || n == "selfUin") continue
-                    val isUinLike = n == "peerUin" || n == "uin" ||
-                        (n.endsWith("Uin") && f.type == String::class.java)
-                    if (!isUinLike) continue
+                    val hit = if (depth == 0) {
+                        n == "peerUin" || n == "uin" || n.endsWith("Uin")
+                    } else {
+                        n == "peerUin"
+                    }
+                    if (!hit) continue
                     f.isAccessible = true
-                    val v = f.get(obj) as? String
-                    if (!v.isNullOrBlank() && v != "0") return v
+                    val s = when (val v = f.get(obj)) {
+                        null -> null
+                        is String -> v.ifBlank { null }
+                        is Number -> if (v.toLong() >= 10000) v.toString() else null
+                        else -> null
+                    }
+                    if (!s.isNullOrBlank()) return s
                 } catch (_: Throwable) { }
             }
             c = c.superclass
-            depth++
+            d++
+        }
+        // 嵌套：仅继续扫 QQ 自带的普通对象字段（跳过 String/基本类型/集合/Map）
+        if (depth < 2) {
+            c = obj.javaClass
+            d = 0
+            while (c != null && c != Any::class.java && d < 3) {
+                for (f in c.declaredFields) {
+                    try {
+                        if (f.type.isPrimitive || f.type == String::class.java) continue
+                        if (f.name.startsWith("this$")) continue
+                        f.isAccessible = true
+                        val v = f.get(obj) ?: continue
+                        if (v is Collection<*> || v is Map<*, *>) continue
+                        if (!v.javaClass.name.startsWith("com.tencent")) continue
+                        val r = scanUinFields(v, depth + 1, budget)
+                        if (r != null) return r
+                    } catch (_: Throwable) { }
+                }
+                c = c.superclass
+                d++
+            }
         }
         return null
     }
 
-    /** uin 在联系人对象上找不到时，跨其余参数扫描（如 MsgRecord 上的 peerUin） */
+    /** uin 在联系人对象上找不到时，跨其余参数扫描（集合参数逐元素扫） */
     private fun scanArgsForUin(args: Array<Any>, skip: Any): String? {
+        val budget = intArrayOf(48)
         for (arg in args) {
             if (arg === skip || arg == null) continue
-            val uin = try { scanUinFields(arg) } catch (_: Throwable) { null }
-            if (!uin.isNullOrBlank()) return uin
+            if (arg is Collection<*>) {
+                for (e in arg.take(20)) {
+                    if (e == null) continue
+                    val r = try { scanUinFields(e, 0, budget) } catch (_: Throwable) { null }
+                    if (r != null) return r
+                }
+            } else {
+                val r = try { scanUinFields(arg, 0, budget) } catch (_: Throwable) { null }
+                if (r != null) return r
+            }
         }
         return null
     }
 
     /**
-     * uin 仍取不到时，把联系人对象的类名、全部 String 字段名与各参数类名打一次日志，
-     * 便于下一轮直接定位字段（每进程仅一次）。
+     * uin 仍取不到时，把联系人对象与各参数的「全部字段名:类型」打一次日志，
+     * 供下一轮直接精确定位（每进程仅一次）。
      */
     private fun logUinDiag(args: Array<Any>, contactObj: Any) {
         if (diagDone) return
         diagDone = true
         try {
-            val sb = StringBuilder("[NekoRewrite] 🔍 uin 提取失败诊断 contactObj=")
-                .append(contactObj.javaClass.name)
-            val names = mutableListOf<String>()
-            var c: Class<*>? = contactObj.javaClass
-            var d = 0
-            while (c != null && c != Any::class.java && d < 4) {
-                for (f in c.declaredFields) if (f.type == String::class.java) names.add(f.name)
-                c = c.superclass
-                d++
+            fun dumpFields(clazz: Class<*>, maxDepth: Int, cap: Int): String {
+                val out = mutableListOf<String>()
+                var c: Class<*>? = clazz
+                var d = 0
+                while (c != null && c != Any::class.java && d < maxDepth && out.size < cap) {
+                    for (f in c.declaredFields) {
+                        if (out.size >= cap) break
+                        out.add("${f.name}:${f.type.simpleName}")
+                    }
+                    c = c.superclass
+                    d++
+                }
+                return out.joinToString(",")
             }
-            sb.append(" stringFields=[").append(names.joinToString(",")).append("]")
+            val sb = StringBuilder("[NekoRewrite] 🔍 uin 提取失败诊断 v2 contactObj=")
+                .append(contactObj.javaClass.name)
+                .append(" fields=[").append(dumpFields(contactObj.javaClass, 4, 40)).append("]")
             for ((i, a) in args.withIndex()) {
-                sb.append(" | arg$i=").append(a?.javaClass?.name ?: "null")
+                if (i > 6) break
+                sb.append(" | arg$i=")
+                if (a == null) sb.append("null")
+                else {
+                    sb.append(a.javaClass.name)
+                    if (a !is Number && a !is String && a !is Boolean) {
+                        val fd = try { dumpFields(a.javaClass, 1, 24) } catch (_: Throwable) { "?" }
+                        sb.append(":[").append(fd).append("]")
+                    }
+                }
             }
             XposedBridge.log(sb.toString())
         } catch (_: Throwable) { }
