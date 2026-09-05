@@ -44,7 +44,6 @@ class MainActivity : AppCompatActivity() {
         setupImmersiveSystemBars()
         setContentView(R.layout.activity_main)
 
-        LogRecorder.init(this)
 
         bottomNav = findViewById(R.id.bottom_navigation)
         applySystemBarInsets()

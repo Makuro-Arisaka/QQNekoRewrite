@@ -1,6 +1,11 @@
 package com.neko.rewrite.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,7 +13,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.neko.rewrite.ConfigManager
-import com.neko.rewrite.LogRecorder
+import com.neko.rewrite.LspStatus
 import com.neko.rewrite.R
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -39,6 +44,9 @@ class OverviewFragment : Fragment() {
         view?.post { refreshModuleStatus() }
     }
 
+    /** QQ 进程发来的 LSP 心跳广播接收器（onViewCreated 注册，onDestroyView 注销） */
+    private var heartbeatReceiver: BroadcastReceiver? = null
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
@@ -68,6 +76,26 @@ class OverviewFragment : Fragment() {
 
         // 注册 SP 监听，App 内用 QS 磁贴开关时实时刷新
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+
+        // 注册 LSP 心跳广播：QQ 里的模块每 60 秒发一次
+        heartbeatReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                if (intent.action != LspStatus.ACTION_HEARTBEAT) return
+                LspStatus.onHeartbeat(
+                    prefs,
+                    intent.getStringExtra(LspStatus.EXTRA_PROC),
+                    intent.getLongExtra(LspStatus.EXTRA_TS, 0L)
+                )
+                view?.post { if (view != null) refreshLsposedStatus() }
+            }
+        }
+        val filter = IntentFilter(LspStatus.ACTION_HEARTBEAT)
+        if (Build.VERSION.SDK_INT >= 33) {
+            requireActivity().registerReceiver(heartbeatReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            requireActivity().registerReceiver(heartbeatReceiver, filter)
+        }
     }
 
     override fun onResume() {
@@ -88,6 +116,8 @@ class OverviewFragment : Fragment() {
         super.onDestroyView()
         refreshJob?.cancel()
         prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+        heartbeatReceiver?.let { requireActivity().unregisterReceiver(it) }
+        heartbeatReceiver = null
     }
 
     private fun refreshAll() {
@@ -103,20 +133,21 @@ class OverviewFragment : Fragment() {
     }
 
     /**
-     * 是否已在 QQ 中生效：以 QQ 进程写入的「挂载心跳」为准。
-     * 心跳超过 24 小时视为失效（期间模块可能已被停用/卸载）。
+     * 是否已在 QQ 中生效：以 QQ 主进程发来的心跳广播为准（每 60 秒一次，
+     * 同时落盘 SP，App 重启后也能看到最近一次心跳）。
+     * 超过 10 分钟无心跳视为失效（QQ 未运行 / 被冻结 / 模块未生效）。
      */
     private fun refreshLsposedStatus() {
-        val mount = LogRecorder.lastMounted()
-        val minutes = mount?.let { (System.currentTimeMillis() - it.first) / 60_000L }
+        val mount = LspStatus.lastHeartbeat(prefs)
 
-        if (mount != null && minutes != null && minutes < 24 * 60) {
+        if (mount != null && LspStatus.isFresh(mount.first)) {
+            val minutes = (System.currentTimeMillis() - mount.first) / 60_000L
             val ago = when {
                 minutes < 1 -> "刚刚"
-                minutes < 60 -> "${minutes} 分钟前"
+                minutes < 60 -> "$minutes 分钟前"
                 else -> "${minutes / 60} 小时前"
             }
-            textLsposedStatus.text = "✅ 已挂载（${mount.second} · $ago）"
+            textLsposedStatus.text = "✅ 已挂载（$ago 收到心跳）"
             textLsposedStatus.setTextColor(resources.getColor(R.color.status_ok, null))
         } else {
             textLsposedStatus.text = "⚠️ 未检测到（需在 LSPosed 启用模块并重启 QQ）"

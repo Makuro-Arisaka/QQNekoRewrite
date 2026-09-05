@@ -68,17 +68,26 @@ class MainHook : IXposedHookLoadPackage {
                             XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
 
 
-                            // 日志诊断走 Logcat；挂载心跳供概览页判断「模块是否真的在 QQ 里生效」
-                            LogRecorder.initFromQqContext(context)
-                            XposedBridge.log("[NekoRewrite] 📋 日志系统已初始化（诊断信息输出到 Logcat）")
-
-                            LogRecorder.markMounted(context, processName)
+                            // 日志诊断走 Logcat（文件心跳已废弃：跨 UID 读不到 QQ 私有目录）
 
                             // 传入 QQ Context 给消息拦截器（用于 Toast）
                             MessageInterceptor.setContext(context)
 
                             // 注册广播接收器（仅接收设置页 / 磁贴发来的配置更新）
                             registerConfigReceiver(context)
+
+                            // LSP 状态心跳：主进程向模块 App 广播存活（概览页据此显示「已挂载」）。
+                            // QQ 多进程，仅主进程发送，避免每个进程都定时器空转。
+                            if (processName == QQ_PACKAGE) {
+                                val handler = android.os.Handler(context.mainLooper)
+                                val beat = object : Runnable {
+                                    override fun run() {
+                                        LspStatus.send(context, processName)
+                                        handler.postDelayed(this, 60_000L)
+                                    }
+                                }
+                                beat.run()
+                            }
 
                             // 启动 Toast 默认关闭，避免暴露模块存在；由设置项控制
                             if (ConfigManager.config.showStartupToast) {
