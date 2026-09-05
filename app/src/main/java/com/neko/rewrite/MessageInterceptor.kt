@@ -162,14 +162,14 @@ object MessageInterceptor {
             val contact = ContactFilter.extractContact(param.args)
 
             // 过滤判定：命中白名单/黑名单规则则跳过改写
-            if (contact.isValid && ContactFilter.shouldSkip(contact.peerUid)) {
-                XposedBridge.log("[NekoRewrite] 🚫 联系人已过滤 (${contact.typeLabel}): ${contact.peerUid}")
+            if (contact.isValid && ContactFilter.shouldSkip(contact)) {
+                XposedBridge.log("[NekoRewrite] 🚫 联系人已过滤 (${contact.typeLabel}): uid=${contact.peerUid ?: "?"} uin=${contact.peerUin ?: "?"}")
                 return
             }
 
             // 记录联系人信息（仅记录有效联系人，供设置页参考）
             if (contact.isValid) {
-                ContactFilter.logContact(contact.peerUid!!, contact.chatType)
+                ContactFilter.logContact(contact)
             }
             logIntercept(target.original, hookName, contact)
 
