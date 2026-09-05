@@ -15,7 +15,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="AI 提供方设置"
+            android:text="设置"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="?attr/colorPrimary"

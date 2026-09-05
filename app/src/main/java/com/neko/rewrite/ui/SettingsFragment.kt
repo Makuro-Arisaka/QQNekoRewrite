@@ -2,6 +2,7 @@ package com.neko.rewrite.ui
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -157,8 +158,34 @@ class SettingsFragment : Fragment() {
         switchEnabled.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
     }
 
+    /**
+     * 构造「不过滤」的 ArrayAdapter。ExposedDropdownMenu 默认按框内已填文字过滤下拉项，
+     * 选中某项后再展开只会显示匹配项（例如选了 DeepSeek 后下拉只剩 DeepSeek 系列）。
+     * 覆写 getFilter 使其恒返回全部项，保证每次展开都能看到完整列表。
+     */
+    private fun <T> noFilterAdapter(context: Context, items: List<T>): ArrayAdapter<T> {
+        val list = ArrayList(items)
+        val adapter = object : ArrayAdapter<T>(context, android.R.layout.simple_list_item_1, list) {
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): Filter.FilterResults {
+                        val r = Filter.FilterResults()
+                        r.values = list
+                        r.count = list.size
+                        return r
+                    }
+
+                    override fun publishResults(constraint: CharSequence?, results: Filter.FilterResults?) {
+                        notifyDataSetChanged()
+                    }
+                }
+            }
+        }
+        return adapter
+    }
+
     private fun setupProviderSpinner() {
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, providers.map { it.name })
+        val adapter = noFilterAdapter(requireContext(), providers.map { it.name })
         spinnerProvider.setAdapter(adapter)
         spinnerProvider.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val provider = providers[position]
@@ -170,7 +197,7 @@ class SettingsFragment : Fragment() {
             if (provider.models.isNotEmpty()) {
                 layoutModel.visibility = View.VISIBLE
                 layoutCustomModel.visibility = View.GONE
-                val modelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, provider.models)
+                val modelAdapter = noFilterAdapter(requireContext(), provider.models)
                 spinnerModel.setAdapter(modelAdapter)
                 spinnerModel.setText(provider.defaultModel, false)
             } else {
@@ -553,7 +580,7 @@ class SettingsFragment : Fragment() {
         layoutModel.visibility = View.VISIBLE
         layoutCustomModel.visibility = View.GONE
 
-        val modelAdapter = ArrayAdapter(activity, android.R.layout.simple_list_item_1, models)
+        val modelAdapter = noFilterAdapter(activity, models)
         spinnerModel.setAdapter(modelAdapter)
 
         // 若当前输入正好在列表里，选中它；否则默认选第一个

@@ -31,8 +31,12 @@ object LogRecorder {
     @Volatile
     private var sharedFile: File? = null
 
-    /** 本进程读取心跳时的候选文件（按优先级） */
-    private val readCandidates = ArrayList<File>()
+    /**
+     * 本进程读取心跳时的候选文件（按优先级），附带可选 Context：
+     * 当候选属于另一个包（QQ）时，携带其 [Context.CONTEXT_IGNORE_SECURITY] 上下文，
+     * 读取时走 openFileInput 绕过跨 UID 的文件权限（裸 File 读 QQ 私有目录会因 0700 失败）。
+     */
+    private val readCandidates = ArrayList<Pair<File, Context?>>()
 
     // region 初始化
 
@@ -47,16 +51,17 @@ object LogRecorder {
         prepare(candidatesFor(qqContext))
     }
 
-    private fun candidatesFor(context: Context): List<File> = buildList {
-        sharedExternalFile()?.let { add(it) }
-        add(File(context.filesDir, MOUNT_FILE_NAME))
-        packageFile(context, if (context.packageName == QQ_PACKAGE) MODULE_PACKAGE else QQ_PACKAGE)?.let { add(it) }
+    private fun candidatesFor(context: Context): List<Pair<File, Context?>> = buildList {
+        sharedExternalFile()?.let { add(it to null) }
+        add(File(context.filesDir, MOUNT_FILE_NAME) to null)
+        packageFile(context, if (context.packageName == QQ_PACKAGE) MODULE_PACKAGE else QQ_PACKAGE)
+            ?.let { (f, ctx) -> add(f to ctx) }
     }
 
-    private fun prepare(candidates: List<File>) {
+    private fun prepare(candidates: List<Pair<File, Context?>>) {
         readCandidates.clear()
         readCandidates.addAll(candidates)
-        sharedFile = candidates.firstOrNull()
+        sharedFile = candidates.firstOrNull()?.first
     }
 
     /**
@@ -72,10 +77,10 @@ object LogRecorder {
     }
 
     /** 另一个包的私有目录下的心跳文件（能否真正访问取决于跨 UID 读取权限） */
-    private fun packageFile(context: Context, pkg: String): File? = try {
+    private fun packageFile(context: Context, pkg: String): Pair<File, Context>? = try {
         val target = if (pkg == context.packageName) context
         else context.createPackageContext(pkg, Context.CONTEXT_IGNORE_SECURITY)
-        File(target.filesDir, MOUNT_FILE_NAME)
+        File(target.filesDir, MOUNT_FILE_NAME) to target
     } catch (_: Exception) {
         null
     }
@@ -118,16 +123,27 @@ object LogRecorder {
 
     /** 模块进程读取心跳；返回 (时间戳, 进程名)，读不到返回 null */
     fun lastMounted(): Pair<Long, String>? {
-        for (file in readCandidates) {
-            readMount(file)?.let { return it }
+        for ((file, ctx) in readCandidates) {
+            readMount(file, ctx)?.let { return it }
         }
         return null
     }
 
-    private fun readMount(file: File): Pair<Long, String>? {
+    /**
+     * 读取单个心跳文件。
+     * - 若携带对方包 Context（QQ），走 [Context.openFileInput] + CONTEXT_IGNORE_SECURITY，
+     *   绕过跨 UID 的裸文件权限（QQ 私有目录 0700、文件 0600，裸 File 读必失败）。
+     * - 否则（本进程私有文件 / 共享外部目录）直接用裸 File 读。
+     */
+    private fun readMount(file: File, ctx: Context?): Pair<Long, String>? {
         return try {
-            if (!file.exists()) return null
-            val map = file.readLines()
+            val lines = if (ctx != null) {
+                ctx.openFileInput(file.name).bufferedReader().use { it.readLines() }
+            } else {
+                if (!file.exists()) return null
+                file.readLines()
+            }
+            val map = lines
                 .mapNotNull { line ->
                     val i = line.indexOf('=')
                     if (i > 0) line.substring(0, i) to line.substring(i + 1) else null
