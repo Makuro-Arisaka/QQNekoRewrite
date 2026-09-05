@@ -47,6 +47,8 @@ class MainHook : IXposedHookLoadPackage {
 
             hookApplication(lpparam)
             MessageInterceptor.install(lpparam.classLoader)
+            // 收信侧 Hook：从 MsgRecord 持续建立 peerUid ↔ QQ号 持久映射
+            UidMap.install(lpparam.classLoader)
 
             XposedBridge.log("[NekoRewrite] ✅ 所有 Hook 安装流程完成")
         } catch (e: Throwable) {
@@ -69,6 +71,9 @@ class MainHook : IXposedHookLoadPackage {
 
                             ConfigManager.init(context)
                             XposedBridge.log("[NekoRewrite] 📄 配置来源: ${ConfigManager.source.label}")
+
+                            // 映射表落盘在 QQ 自身 files 目录（本进程有完全读写权）
+                            UidMap.init(context)
 
                             // 日志诊断走 Logcat；挂载心跳供概览页判断「模块是否真的在 QQ 里生效」
                             LogRecorder.initFromQqContext(context)

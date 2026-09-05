@@ -12,8 +12,8 @@ android {
         applicationId = "com.neko.rewrite"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.100"
+        versionCode = 13
+        versionName = "0.101"
     }
 
     // 仅当环境变量 KEYSTORE_PASS 存在时才启用签名；否则 release 仍产出 unsigned。

@@ -58,10 +58,15 @@ object ContactFilter {
         for (arg in args) {
             val info = try { tryExtract(arg) } catch (_: Throwable) { null } ?: continue
             if (info.isValid) {
-                val merged = if (info.peerUin.isNullOrBlank()) {
+                var merged = if (info.peerUin.isNullOrBlank()) {
                     info.copy(peerUin = scanArgsForUin(args, skip = arg))
                 } else {
                     info
+                }
+                // 运行时扫描拿不到 QQ 号时，查收信侧建立的持久映射（UidMap）
+                if (merged.peerUin.isNullOrBlank() && !info.peerUid.isNullOrBlank()) {
+                    val mapped = UidMap.get(info.peerUid!!)
+                    if (mapped != null) merged = merged.copy(peerUin = mapped)
                 }
                 if (merged.peerUin.isNullOrBlank()) logUinDiag(args, arg)
                 return merged
@@ -145,7 +150,8 @@ object ContactFilter {
                         f.isAccessible = true
                         val v = f.get(obj) ?: continue
                         if (v is Collection<*> || v is Map<*, *>) continue
-                        if (!v.javaClass.name.startsWith("com.tencent")) continue
+                        val cn = v.javaClass.name
+                        if (!cn.startsWith("com.tencent") && !cn.startsWith("kotlin.")) continue
                         val r = scanUinFields(v, depth + 1, budget)
                         if (r != null) return r
                     } catch (_: Throwable) { }

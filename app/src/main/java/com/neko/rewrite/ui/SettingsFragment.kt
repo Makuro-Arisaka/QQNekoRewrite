@@ -378,8 +378,11 @@ class SettingsFragment : Fragment() {
         val input = TextInputEditText(ctx).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
         }
-        val inputLayout = TextInputLayout(ctx).apply {
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_FILLED
+        val inputLayout = TextInputLayout(
+            ctx, null,
+            com.google.android.material.R.attr.textInputOutlinedStyle
+        ).apply {
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
             hint = "QQ号"
             placeholderText = "请输入QQ号"
             helperText = "支持个人QQ或QQ群号码"
