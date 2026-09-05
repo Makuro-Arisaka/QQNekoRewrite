@@ -19,6 +19,7 @@ import com.neko.rewrite.ConfigBroadcast
 import com.neko.rewrite.ConfigManager
 import com.neko.rewrite.PromptManager
 import com.neko.rewrite.ProviderPresets
+import com.neko.rewrite.QuickTileService
 import com.neko.rewrite.R
 import com.neko.rewrite.model.ModuleConfig
 
@@ -31,7 +32,6 @@ class SettingsFragment : Fragment() {
     private lateinit var switchEnabled: MaterialSwitch
     private lateinit var switchShowToast: MaterialSwitch
     private lateinit var switchStartupToast: MaterialSwitch
-    private lateinit var switchQuickToggle: MaterialSwitch
     private lateinit var switchAsyncRewrite: MaterialSwitch
     private lateinit var editRewriteTimeout: EditText
     private lateinit var editApiKey: EditText
@@ -77,7 +77,6 @@ class SettingsFragment : Fragment() {
         switchEnabled = view.findViewById(R.id.switch_enabled)
         switchShowToast = view.findViewById(R.id.switch_show_toast)
         switchStartupToast = view.findViewById(R.id.switch_startup_toast)
-        switchQuickToggle = view.findViewById(R.id.switch_quick_toggle)
         switchAsyncRewrite = view.findViewById(R.id.switch_async_rewrite)
         editRewriteTimeout = view.findViewById(R.id.edit_rewrite_timeout)
         editApiKey = view.findViewById(R.id.edit_api_key)
@@ -150,7 +149,6 @@ class SettingsFragment : Fragment() {
         switchEnabled.isChecked = prefs.getBoolean("enabled", true)
         switchShowToast.isChecked = prefs.getBoolean("show_toast", true)
         switchStartupToast.isChecked = prefs.getBoolean("show_startup_toast", false)
-        switchQuickToggle.isChecked = prefs.getBoolean("quick_toggle", false)
         switchAsyncRewrite.isChecked = prefs.getBoolean("async_rewrite", true)
         editRewriteTimeout.setText(prefs.getInt("rewrite_timeout_ms", 8000).toString())
         editApiKey.setText(prefs.getString("api_key", "") ?: "")
@@ -212,7 +210,6 @@ class SettingsFragment : Fragment() {
         switchEnabled.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         switchShowToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         switchStartupToast.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
-        switchQuickToggle.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         switchAsyncRewrite.setOnCheckedChangeListener { _, _ -> saveConfig(auto = true) }
         toggleFilterMode.addOnButtonCheckedListener { _, _, _ -> saveConfig(auto = true) }
 
@@ -364,7 +361,6 @@ class SettingsFragment : Fragment() {
                 temperature = temperature,
                 showToast = switchShowToast.isChecked,
                 showStartupToast = switchStartupToast.isChecked,
-                quickToggle = switchQuickToggle.isChecked,
                 asyncRewrite = switchAsyncRewrite.isChecked,
                 rewriteTimeoutMs = rewriteTimeout,
                 filterMode = filterMode,
@@ -379,6 +375,9 @@ class SettingsFragment : Fragment() {
 
             // 通过广播把完整配置即时同步给 QQ（含本页未改动的字段，避免覆盖）
             ConfigBroadcast.send(requireActivity(), newConfig, timestamp)
+
+            // 若用户已把「猫娘改写」磁贴添加到下拉菜单，顺手同步一下磁贴状态
+            QuickTileService.refresh(requireActivity())
 
             showStatus(
                 if (apiKey.isEmpty()) "配置已保存，但 API Key 未填写 —— 改写不会生效"

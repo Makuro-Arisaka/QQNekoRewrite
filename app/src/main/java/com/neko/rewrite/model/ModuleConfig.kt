@@ -20,12 +20,6 @@ data class ModuleConfig(
     /** QQ 启动时是否弹「已加载」Toast（默认关闭，避免暴露模块存在） */
     val showStartupToast: Boolean = false,
     /**
-     * 通知栏快速开关：在 QQ 通知栏显示一条常驻通知，可一键启用/停用改写。
-     * 默认关闭 —— 常驻通知比 Toast 更显眼，会持续暴露模块存在，
-     * 仅在用户确实需要免开 App 快速切换时才开启。
-     */
-    val quickToggle: Boolean = false,
-    /**
      * 异步改写：拦截后先放行发送线程，AI 改写完成后再重放原方法。
      * 关闭则退回同步改写（阻塞发送线程，但行为最保守）。
      */

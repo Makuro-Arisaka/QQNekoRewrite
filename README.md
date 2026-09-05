@@ -16,7 +16,7 @@
 - **异步改写** — 改写请求在独立队列执行，不阻塞发送线程；相同请求自动合并（并发去重），改写结果 LRU 缓存（上限 200 条）省 token
 - **联系人过滤** — 白名单 / 黑名单 / 不限制三种模式，只改写想改写的会话
 - **`//` 转义前缀** — 以 `//` 开头的消息跳过改写、去掉前缀原样发送，不消耗 token
-- **通知栏快速开关** — 常驻低优先级通知，一键启停模块
+- **Quick Settings 磁贴** — 下拉菜单磁贴，一键启停改写（由 SystemUI 托管，不依赖 QQ 进程）
 - **改写 Toast** — 可选在发送时 Toast 显示实际发出的改写结果
 - **Material You** — 全 Material 3 界面，Android 12+ 动态取色跟随壁纸，沉浸式系统栏
 
@@ -83,7 +83,7 @@ app/src/main/java/com/neko/rewrite/
 ├── RewriteCache.kt        # 改写结果 LRU 缓存
 ├── ChatApi / ProviderPresets / PromptManager
 ├── ConfigManager.kt       # 三通道跨进程配置同步
-├── QuickToggle.kt         # 通知栏快速开关
+├── QuickTileService.kt    # Quick Settings 磁贴：下拉菜单一键启停改写
 ├── ApiProbe.kt            # 连接探测 / 模型列表拉取
 └── MainActivity + ui/     # Material 3 设置界面
 ```

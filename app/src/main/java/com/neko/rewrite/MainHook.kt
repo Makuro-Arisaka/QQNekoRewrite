@@ -19,8 +19,6 @@ class MainHook : IXposedHookLoadPackage {
     companion object {
         private const val QQ_PACKAGE = "com.tencent.mobileqq"
         const val ACTION_CONFIG_UPDATE = "com.neko.rewrite.CONFIG_UPDATE"
-        /** 通知栏快速开关点击：翻转改写总开关 */
-        const val ACTION_TOGGLE_ENABLED = "com.neko.rewrite.TOGGLE_ENABLED"
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_API_ENDPOINT = "api_endpoint"
         const val EXTRA_MODEL = "model"
@@ -31,7 +29,6 @@ class MainHook : IXposedHookLoadPackage {
         const val EXTRA_ENABLED = "enabled"
         const val EXTRA_SHOW_TOAST = "show_toast"
         const val EXTRA_SHOW_STARTUP_TOAST = "show_startup_toast"
-        const val EXTRA_QUICK_TOGGLE = "quick_toggle"
         const val EXTRA_ASYNC_REWRITE = "async_rewrite"
         const val EXTRA_REWRITE_TIMEOUT = "rewrite_timeout_ms"
         const val EXTRA_FILTER_MODE = "filter_mode"
@@ -82,11 +79,8 @@ class MainHook : IXposedHookLoadPackage {
                             // 传入 QQ Context 给消息拦截器（用于 Toast）
                             MessageInterceptor.setContext(context)
 
-                            // 注册广播接收器（配置更新 + 通知栏快速开关）
+                            // 注册广播接收器（仅接收设置页 / 磁贴发来的配置更新）
                             registerConfigReceiver(context)
-
-                            // 通知栏快速开关默认关闭，由设置项控制
-                            refreshQuickToggle(context, retry = true)
 
                             // 启动 Toast 默认关闭，避免暴露模块存在；由设置项控制
                             if (ConfigManager.config.showStartupToast) {
@@ -109,16 +103,17 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     /**
-     * 注册广播接收器：
-     * - [ACTION_CONFIG_UPDATE]：接收设置页面的配置更新
-     * - [ACTION_TOGGLE_ENABLED]：通知栏快速开关翻转改写总开关
+     * 注册广播接收器：接收设置页面 / Quick Settings 磁贴发来的配置更新。
+     *
+     * 之前的实现里这里还接收 [ACTION_TOGGLE_ENABLED]（通知栏开关翻转改写总开关），
+     * 但由于 QQ 多进程竞态，那条通知总被误删。现在一键开关改为 Quick Settings 磁贴，
+     * 由 SystemUI 托管、与 QQ 进程解耦，不再需要这条广播。
      */
     private fun registerConfigReceiver(context: android.content.Context) {
         try {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(ctx: Context, intent: Intent) {
                     when (intent.action) {
-                        ACTION_TOGGLE_ENABLED -> handleQuickToggle(ctx, intent)
                         ACTION_CONFIG_UPDATE -> handleConfigUpdate(ctx, intent)
                     }
                 }
@@ -126,16 +121,15 @@ class MainHook : IXposedHookLoadPackage {
 
             val filter = IntentFilter().apply {
                 addAction(ACTION_CONFIG_UPDATE)
-                addAction(ACTION_TOGGLE_ENABLED)
             }
             context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-            XposedBridge.log("[NekoRewrite] 📡 广播接收器已注册（配置更新 / 快速开关）")
+            XposedBridge.log("[NekoRewrite] 📡 广播接收器已注册（配置更新）")
         } catch (e: Exception) {
             XposedBridge.log("[NekoRewrite] ⚠️ 广播接收器注册失败: ${e.message}")
         }
     }
 
-    /** 设置页保存配置：写入 QQ 侧 SP 并热更新 */
+    /** 设置页 / 磁贴保存配置：写入 QQ 侧 SP 并热更新 */
     private fun handleConfigUpdate(context: Context, intent: Intent) {
         try {
             XposedBridge.log("[NekoRewrite] 📡 收到配置更新广播")
@@ -152,7 +146,6 @@ class MainHook : IXposedHookLoadPackage {
                         maxTokens = intent.getIntExtra(EXTRA_MAX_TOKENS, 500),
                         showToast = intent.getBooleanExtra(EXTRA_SHOW_TOAST, true),
                         showStartupToast = intent.getBooleanExtra(EXTRA_SHOW_STARTUP_TOAST, prefs.getBoolean("show_startup_toast", false)),
-                        quickToggle = intent.getBooleanExtra(EXTRA_QUICK_TOGGLE, prefs.getBoolean("quick_toggle", false)),
                         asyncRewrite = intent.getBooleanExtra(EXTRA_ASYNC_REWRITE, prefs.getBoolean("async_rewrite", true)),
                         rewriteTimeoutMs = intent.getIntExtra(EXTRA_REWRITE_TIMEOUT, prefs.getInt("rewrite_timeout_ms", 8000)),
                         filterMode = intent.getIntExtra(EXTRA_FILTER_MODE, prefs.getInt("filter_mode", 0)),
@@ -167,72 +160,8 @@ class MainHook : IXposedHookLoadPackage {
 
             ConfigManager.applyBroadcast(context, incoming)
             LogRecorder.success("Config", "广播更新配置: 模型=${incoming.model} ts=${incoming.lastUpdated}")
-
-            // 通知栏开关的显隐可能随本次配置改变，同步刷新
-            refreshQuickToggle(context)
         } catch (e: Exception) {
             XposedBridge.log("[NekoRewrite] ⚠️ 配置更新处理失败: ${e.message}")
-        }
-    }
-
-    /**
-     * 通知栏快速开关：把改写总开关设为广播携带的目标值。
-     *
-     * 这里用**绝对目标值**（[EXTRA_ENABLED]）而不是「翻转」：
-     * QQ 有多个进程，每个注册了接收器的进程都会收到这条广播，
-     * 「翻转」语义会被执行 N 次、结果回到原状态；绝对值是幂等的。
-     *
-     * 以【当前时间】作为新时间戳写入 QQ 侧 SP —— 它比模块侧保存的时间戳更新，
-     * 因此即便 QQ 重启，多来源仲裁仍会选中这份配置，开关状态得以保持。
-     * （用户之后在设置页保存会写入更新的时间戳，自然覆盖之。）
-     */
-    private fun handleQuickToggle(context: Context, intent: Intent) {
-        try {
-            val target = intent.getBooleanExtra(EXTRA_ENABLED, !ConfigManager.config.enabled)
-            if (target == ConfigManager.config.enabled) {
-                // 已被同一次点击的其它进程处理过：只刷新通知，重复写入会把时间戳推新
-                QuickToggle.show(context)
-                return
-            }
-
-            val updated = ConfigManager.config.copy(
-                enabled = target,
-                lastUpdated = System.currentTimeMillis()
-            )
-            ConfigManager.applyBroadcast(context, updated)
-            XposedBridge.log("[NekoRewrite] 🔔 快速开关：改写已${if (target) "启用" else "停用"}")
-            LogRecorder.success("QuickToggle", "改写已${if (target) "启用" else "停用"}")
-            QuickToggle.show(context)
-        } catch (t: Throwable) {
-            XposedBridge.log("[NekoRewrite] ❌ 快速开关切换失败: ${t.javaClass.simpleName}: ${t.message}")
-        }
-    }
-
-    /**
-     * 按当前配置显示或移除通知栏开关。
-     * @param retry true = QQ 启动阶段，额外做两次延迟重发（防止被启动过程清掉）
-     */
-    private fun refreshQuickToggle(context: Context, retry: Boolean = false) {
-        // 配置未真正加载（回落默认值）时不据此取消通知。
-        // QQ 是多进程，每个进程的 Application.onCreate 都会跑到这里；
-        // 没收到过广播、且 XSharedPreferences 在该进程读不到的进程会回落默认（quickToggle=false），
-        // 若据此取消会把其它进程刚发布的通知误删 —— 表现为「进入 QQ 后通知就消失」。
-        // 仅在配置确实从某个来源读到时，才按 quickToggle 决定显示/移除。
-        if (ConfigManager.source == ConfigManager.Source.DEFAULT) {
-            LogRecorder.warn("QuickToggle", "配置未加载（默认态），跳过通知刷新，避免误删既有通知")
-            return
-        }
-        try {
-            if (ConfigManager.config.quickToggle) {
-                LogRecorder.info("QuickToggle", "配置要求显示常驻通知，正在发布...")
-                if (retry) QuickToggle.showWithRetry(context) else QuickToggle.show(context)
-            } else {
-                LogRecorder.info("QuickToggle", "通知栏快速开关未启用（设置页可开启）")
-                QuickToggle.cancel(context)
-            }
-        } catch (t: Throwable) {
-            XposedBridge.log("[NekoRewrite] ⚠️ 通知栏开关刷新失败: ${t.message}")
-            LogRecorder.warn("QuickToggle", "通知栏开关刷新失败: ${t.message}")
         }
     }
 }

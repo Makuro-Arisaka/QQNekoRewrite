@@ -5,10 +5,6 @@
     <!-- 网络权限（API 连通性测试） -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- 通知权限（Android 13+ 发布通知必需；常驻开关在 QQ 进程中以 QQ 身份发出，
-         若将来改为在模块进程内发通知，也必须先持有该权限） -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
     <!-- Xposed 模块声明 -->
     <application
         android:allowBackup="false"
@@ -47,6 +43,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Quick Settings 磁贴：一键启停猫娘改写（由 SystemUI 托管，不受 QQ 进程影响） -->
+        <service
+            android:name="com.neko.rewrite.QuickTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_neko"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TILE_ID"
+                android:value="neko_rewrite_tile" />
+            <meta-data
+                android:name="android.service.quicksettings.TILE_LABEL"
+                android:resource="@string/tile_label" />
+            <meta-data
+                android:name="android.service.quicksettings.TILE_ICON"
+                android:resource="@drawable/ic_tile_neko" />
+        </service>
     </application>
 
 </manifest>
